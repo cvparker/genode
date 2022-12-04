@@ -227,6 +227,9 @@ void wpa_supplicant_ctrl_iface_deinit(struct wpa_supplicant *wpa_s,
 {
 	(void)wpa_s;
 
+	eloop_unregister_read_sock(priv->fd);
+	wifi_notify_event();
+	send_event(priv,"IFACE-DEINIT",12);
 	os_free(priv);
 }
 
