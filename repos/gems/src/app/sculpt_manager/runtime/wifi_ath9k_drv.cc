@@ -76,6 +76,7 @@ void Sculpt::gen_wifi_drv_start_content(Xml_generator &xml)
 		gen_parent_rom_route(xml, "wpa_supplicant.lib.so");
 		gen_parent_rom_route(xml, "regulatory.db");
 		gen_parent_rom_route(xml, "regulatory.db.p7s");
+		gen_parent_rom_route(xml, "rt2870.bin");
 		gen_parent_route<Cpu_session>      (xml);
 		gen_parent_route<Pd_session>       (xml);
 		gen_parent_route<Rm_session>       (xml);
