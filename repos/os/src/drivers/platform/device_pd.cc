@@ -94,7 +94,14 @@ addr_t Device_pd::_dma_addr(addr_t const phys_addr,
 			});
 	}
 
-	return _dma_alloc.alloc_aligned(size, 12).convert<addr_t>(
+	/* natural size align (to some limit) for better IOMMU TLB usage */
+	unsigned size_align_log2 = unsigned(log2(size));
+	if (size_align_log2 < 12) /* 4 kB */
+		size_align_log2 = 12;
+	if (size_align_log2 > 24) /* 16 MB */
+		size_align_log2 = 24;
+
+	return _dma_alloc.alloc_aligned(size, size_align_log2).convert<addr_t>(
 		[&] (void *ptr) { return (addr_t)ptr; },
 		[&] (Alloc_error err) -> addr_t {
 			switch (err) {
@@ -102,6 +109,7 @@ addr_t Device_pd::_dma_addr(addr_t const phys_addr,
 			case Alloc_error::OUT_OF_CAPS: throw Out_of_caps();
 			case Alloc_error::DENIED:
 				error("Could not allocate DMA area of size: ", size,
+				      " alignment: ", size_align_log2,
 				      " total avail: ", _dma_alloc.avail(),
 				     " (error: ", err, ")");
 				break;
@@ -196,6 +204,15 @@ Device_pd::Device_pd(Env             & env,
 	/* 0x1000 - 4GB per device PD */
 	enum { DMA_SIZE = 0xffffe000 };
 	_dma_alloc.add_range(0x1000, DMA_SIZE);
+
+	/*
+	 * Interrupt address range is special handled and in general not
+	 * usable for normal DMA translations, see chapter 3.15
+	 * of "Intel Virtualization Technology for Directed I/O"
+	 * (March 2023, Revision 4.1)
+	 */
+	enum { IRQ_RANGE_BASE = 0xfee00000u, IRQ_RANGE_SIZE = 0x100000 };
+	_dma_alloc.remove_range(IRQ_RANGE_BASE, IRQ_RANGE_SIZE);
 
 	_pd.ref_account(env.pd_session_cap());
 }

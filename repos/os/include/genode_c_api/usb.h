@@ -147,16 +147,21 @@ struct genode_usb_request_control
 	int            timeout;
 };
 
-enum Iso  { MAX_PACKETS = 32 };
-
 struct genode_usb_request_transfer
 {
 	unsigned char ep;
 	int           actual_size;
 	int           polling_interval;
-	int           number_of_packets;
-	unsigned long packet_size[MAX_PACKETS];
-	unsigned long actual_packet_size[MAX_PACKETS];
+};
+
+enum Isoc { MAX_PACKETS = 32 };
+
+struct genode_usb_isoc_transfer
+{
+	unsigned number_of_packets;
+	unsigned packet_size[MAX_PACKETS];
+	unsigned actual_packet_size[MAX_PACKETS];
+	char     data[];
 };
 
 enum Urb_type { CTRL, BULK, IRQ, ISOC, NONE };
@@ -166,6 +171,12 @@ struct genode_usb_request_urb
 {
 	genode_usb_urb_t type;
 	void           * req;
+};
+
+struct genode_usb_buffer
+{
+	void        * addr;
+	unsigned long size;
 };
 
 static inline struct genode_usb_request_control *
@@ -197,16 +208,14 @@ typedef void (*genode_usb_req_urb_t)
 	(struct genode_usb_request_urb req,
 	 genode_usb_session_handle_t   session_handle,
 	 genode_usb_request_handle_t   request_handle,
-	 void                        * payload,
-	 unsigned long                 payload_size,
+	 struct genode_usb_buffer      payload,
 	 void                        * opaque_data);
 
 typedef void (*genode_usb_req_string_t)
 	(struct genode_usb_request_string * req,
 	 genode_usb_session_handle_t        session_handle,
 	 genode_usb_request_handle_t        request_handle,
-	 void                             * payload,
-	 unsigned long                      payload_size,
+	 struct genode_usb_buffer           payload,
 	 void                             * opaque_data);
 
 typedef void (*genode_usb_req_altsetting_t)
@@ -229,6 +238,7 @@ typedef void (*genode_usb_req_flush_t)
 
 typedef genode_usb_request_ret_t (*genode_usb_response_t)
 	(struct genode_usb_request_urb req,
+	 struct genode_usb_buffer      payload,
 	 void                        * opaque_data);
 
 struct genode_usb_request_callbacks {

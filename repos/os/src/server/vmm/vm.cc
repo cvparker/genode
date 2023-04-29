@@ -13,6 +13,11 @@
 
 #include <fdt.h>
 #include <vm.h>
+#include <virtio_console.h>
+#include <virtio_net.h>
+#include <virtio_block.h>
+#include <virtio_gpu.h>
+#include <virtio_input.h>
 
 using Vmm::Vm;
 
@@ -41,9 +46,15 @@ Genode::addr_t Vm::_initrd_offset() const
 }
 
 
+Genode::size_t Vm::_initrd_size() const
+{
+	return _initrd_rom.constructed() ? _initrd_rom->size() : 0UL;
+}
+
+
 Genode::addr_t Vm::_dtb_offset() const
 {
-	return align_addr(_initrd_offset()+_initrd_rom.size(), LOG2_2MB);
+	return align_addr(_initrd_offset() + _initrd_size(), LOG2_2MB);
 }
 
 
@@ -56,15 +67,20 @@ void Vm::_load_kernel()
 
 void Vm::_load_initrd()
 {
+	if (!_config.initrd())
+		return;
+
+	_initrd_rom.construct(_env, _config.initrd_name());
 	memcpy((void*)(_ram.local() + _initrd_offset()),
-	       _initrd_rom.local_addr<void>(), _initrd_rom.size());
+	       _initrd_rom->local_addr<void>(), _initrd_size());
 }
 
 
 void Vm::_load_dtb()
 {
 	Fdt_generator fdt(_env, _heap, _ram.local() + _dtb_offset(), 1 << LOG2_2MB);
-	fdt.generate(_config, (void*)(_ram.base()+_initrd_offset()), _initrd_rom.size());
+	fdt.generate(_config, (void*)(_ram.base() + _initrd_offset()),
+	             _initrd_size());
 }
 
 
@@ -102,22 +118,38 @@ Vm::Vm(Genode::Env & env, Heap & heap, Config & config)
 	_config.for_each_virtio_device([&] (Config::Virtio_device const & dev) {
 		switch (dev.type) {
 		case Config::Virtio_device::CONSOLE:
-			_device_list.insert(new (_heap)
+			new (_heap)
 				Virtio_console(dev.name.string(), (uint64_t)dev.mmio_start,
 				               dev.mmio_size, dev.irq, boot_cpu(),
-				               _bus, _ram, env));
+				               _bus, _ram, _device_list, env);
 			return;
 		case Config::Virtio_device::NET:
-			_device_list.insert(new (_heap)
+			new (_heap)
 				Virtio_net(dev.name.string(), (uint64_t)dev.mmio_start,
 				           dev.mmio_size, dev.irq, boot_cpu(), _bus, _ram,
-				           env));
-				return;
+				           _device_list, env);
+			return;
 		case Config::Virtio_device::BLOCK:
-			_device_list.insert(new (_heap)
+			new (_heap)
 				Virtio_block_device(dev.name.string(), (uint64_t)dev.mmio_start,
 				                    dev.mmio_size, dev.irq, boot_cpu(),
-				                    _bus, _ram, env, heap));
+				                    _bus, _ram, _device_list, env, heap);
+			return;
+		case Config::Virtio_device::GPU:
+			if (!_gui.constructed()) _gui.construct(env);
+			new (_heap)
+				Virtio_gpu_device(dev.name.string(), (uint64_t)dev.mmio_start,
+				                    dev.mmio_size, dev.irq, boot_cpu(),
+				                    _bus, _ram, _device_list, env,
+				                    heap, _vm_ram, *_gui);
+			return;
+		case Config::Virtio_device::INPUT:
+			if (!_gui.constructed()) _gui.construct(env);
+			new (_heap)
+				Virtio_input_device(dev.name.string(), (uint64_t)dev.mmio_start,
+				                    dev.mmio_size, dev.irq, boot_cpu(),
+				                    _bus, _ram, _device_list, env,
+				                    heap, *_gui->input());
 		default:
 			return;
 		};

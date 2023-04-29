@@ -28,6 +28,9 @@
 #include <lx_emul/task.h>
 #include <lx_emul/time.h>
 
+#include <linux/sched/cputime.h>
+#include <linux/sched/clock.h>
+#include <linux/sched/wake_q.h>
 #include <../kernel/sched/sched.h>
 
 
@@ -103,14 +106,12 @@ static void __schedule(void)
 
 asmlinkage __visible void __sched schedule(void)
 {
+	lx_emul_time_update_jiffies();
+
 	if (current->__state) {
 		unsigned int task_flags = current->flags;
-		if (task_flags & PF_WQ_WORKER) {
-			tick_nohz_idle_enter();
-			lx_emul_time_handle();
-			tick_nohz_idle_exit();
+		if (task_flags & PF_WQ_WORKER)
 			wq_worker_sleeping(current);
-		}
 	}
 
 	__schedule();
@@ -141,6 +142,7 @@ asmlinkage __visible void __sched notrace preempt_schedule(void)
 	if (likely(!preemptible()))
 		return;
 
+	lx_emul_time_update_jiffies();
 	__schedule();
 }
 
@@ -150,6 +152,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
 	if (likely(!preemptible()))
 		return;
 
+	lx_emul_time_update_jiffies();
 	__schedule();
 }
 
@@ -193,10 +196,18 @@ unsigned long wait_task_inactive(struct task_struct * p,
 {
 	struct rq *rq = task_rq(p);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,1,0)
 	if (task_running(rq, p))
+#else
+	if (task_on_cpu(rq, p))
+#endif
 		schedule();
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,1,0)
 	if (task_running(rq, p))
+#else
+	if (task_on_cpu(rq, p))
+#endif
 		return 0;
 
 	return 1;

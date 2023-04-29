@@ -18,15 +18,15 @@
 #include <hw/spec/arm/gicv2.h>
 #include <hw/spec/arm/imx6q_sabrelite_board.h>
 
-/* base-hw Core includes */
-#include <spec/arm/cortex_a9_private_timer.h>
+/* base-hw core includes */
+#include <spec/arm/cortex_a9_global_timer.h>
 #include <spec/cortex_a9/cpu.h>
 
 namespace Board {
 
 	using namespace Hw::Imx6q_sabrelite_board;
 
-	class Global_interrupt_controller { };
+	class Global_interrupt_controller { public: void init() {} };
 	class Pic : public Hw::Gicv2 { public: Pic(Global_interrupt_controller &) { } };
 
 	using L2_cache = Hw::Pl310;
@@ -34,8 +34,8 @@ namespace Board {
 	L2_cache & l2_cache();
 
 	enum {
-		CORTEX_A9_PRIVATE_TIMER_CLK = 396000000, /* timer clk runs half the CPU freq */
-		CORTEX_A9_PRIVATE_TIMER_DIV = 100,
+		CORTEX_A9_GLOBAL_TIMER_CLK = 396000000, /* timer clk runs half the CPU freq */
+		CORTEX_A9_GLOBAL_TIMER_DIV = 100,
 	};
 }
 

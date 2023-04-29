@@ -11,7 +11,7 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#include <base/log.h>
+#include <types.h>
 #include <hw/assert.h>
 #include <kernel/cpu_scheduler.h>
 
@@ -73,6 +73,17 @@ void Cpu_scheduler::_head_claimed(unsigned const r)
 		return;
 
 	_rcl[_head->_prio].to_tail(&_head->_claim_item);
+
+	/*
+	 * This is an optimization for the case that a prioritized scheduling
+	 * context needs sligtly more time during a round than granted via quota.
+	 * If this is the case, we move the scheduling context to the front of
+	 * the unprioritized schedule once its quota gets depleted and thereby
+	 * at least ensure that it does not have to wait for all unprioritized
+	 * scheduling contexts as well before being scheduled again.
+	 */
+	if (!_head_yields)
+		_fills.to_head(&_head->_fill_item);
 }
 
 
@@ -128,7 +139,6 @@ unsigned Cpu_scheduler::_trim_consumption(unsigned &q)
 	if (!_head_yields)
 		return _head_quota - q;
 
-	_head_yields = false;
 	return 0;
 }
 
@@ -178,6 +188,14 @@ void Cpu_scheduler::update(time_t time)
 		else
 			_head_filled(r);
 
+		_head_yields = false;
+		_consumed(duration);
+
+	} else if (_head_was_removed) {
+
+		_trim_consumption(duration);
+		_head_was_removed = false;
+		_head_yields = false;
 		_consumed(duration);
 	}
 
@@ -196,43 +214,34 @@ void Cpu_scheduler::ready(Share &s)
 	assert(!s._ready && &s != &_idle);
 
 	s._ready = 1;
+	if (s._quota) {
+
+		_ucl[s._prio].remove(&s._claim_item);
+		if (s._claim) {
+
+			_rcl[s._prio].insert_head(&s._claim_item);
+			if (_head && _head_claims) {
+
+				if (s._prio >= _head->_prio) {
+
+					_need_to_schedule = true;
+				}
+			} else {
+
+				_need_to_schedule = true;
+			}
+		} else {
+
+			_rcl[s._prio].insert_tail(&s._claim_item);;
+		}
+	}
+
 	s._fill = _fill;
 	_fills.insert_tail(&s._fill_item);
+	if (!_head || _head == &_idle) {
 
-	if (_head == &_idle)
 		_need_to_schedule = true;
-
-	if (!s._quota)
-		return;
-
-	_ucl[s._prio].remove(&s._claim_item);
-
-	if (s._claim)
-		_rcl[s._prio].insert_head(&s._claim_item);
-	else
-		_rcl[s._prio].insert_tail(&s._claim_item);
-
-	/*
-	 * Check whether we need to re-schedule
-	 */
-	if (_need_to_schedule)
-		return;
-
-	/* current head has no quota left */
-	if (!_head_claims) {
-		_need_to_schedule = true;
-		return;
 	}
-
-	/* if current head has different priority */
-	if (s._prio != _head->_prio) {
-		_need_to_schedule = s._prio > _head->_prio;
-		return;
-	}
-
-	/* if current head has same priority, the ready share gets active */
-	if (s._claim)
-		_need_to_schedule = true;
 }
 
 
@@ -267,8 +276,10 @@ void Cpu_scheduler::remove(Share &s)
 
 	if (s._ready) unready(s);
 
-	if (&s == _head)
+	if (&s == _head) {
 		_head = nullptr;
+		_head_was_removed = true;
+	}
 
 	if (!s._quota)
 		return;
@@ -302,9 +313,12 @@ void Cpu_scheduler::quota(Share &s, unsigned const q)
 }
 
 
-Cpu_share &Cpu_scheduler::head() const
+Cpu_share &Cpu_scheduler::head()
 {
-	assert(_head);
+	if (!_head) {
+		Genode::error("attempt to access invalid scheduler head");
+		update(_last_time);
+	}
 	return *_head;
 }
 

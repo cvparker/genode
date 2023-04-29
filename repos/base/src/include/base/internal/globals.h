@@ -28,6 +28,7 @@ namespace Genode {
 
 	Thread_capability main_thread_cap();
 
+	void init_platform();
 	void init_stack_area();
 	void init_exception_handling(Env &);
 	void init_signal_transmitter(Env &);
@@ -38,6 +39,7 @@ namespace Genode {
 	void init_root_proxy(Env &);
 	void init_tracing(Env &);
 	void init_log(Parent &);
+	void init_rpc_cap_alloc(Parent &);
 	void init_parent_resource_requests(Env &);
 	void init_heartbeat_monitoring(Env &);
 	void deinit_heartbeat_monitoring();

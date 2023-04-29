@@ -17,11 +17,11 @@
 #include <base/heap.h>
 #include <base/log.h>
 #include <base/sleep.h>
-#include <base/snprintf.h>
 #include <file_system_session/connection.h>
 #include <file_system/util.h>
 #include <util/string.h>
 #include <util/xml_node.h>
+#include <format/snprintf.h>
 
 extern "C" {
 #include "stdio.h"
@@ -395,7 +395,7 @@ extern "C" void *malloc(size_t size)
 
 extern "C" int sprintf(char *str, const char *format, ...)
 {
-	using namespace Genode;
+	using namespace Format;
 
 	va_list list;
 	va_start(list, format);
@@ -459,7 +459,7 @@ extern "C" int vfprintf(FILE *stream, const char *format, va_list list)
 	if (stream != stderr)
 		return 0;
 
-	using namespace Genode;
+	using namespace Format;
 
 	char buf[1024] { };
 	String_console sc { buf, sizeof(buf) };

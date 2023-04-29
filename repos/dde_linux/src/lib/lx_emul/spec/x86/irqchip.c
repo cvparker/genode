@@ -15,7 +15,6 @@
 #include <lx_emul/irq.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
-#include <linux/tick.h>
 #include <../kernel/irq/internals.h>
 
 
@@ -48,14 +47,13 @@ struct irq_chip dde_irqchip_data_chip = {
 
 int lx_emul_irq_task_function(void * data)
 {
+	unsigned long flags;
 	int irq;
 
 	for (;;) {
 		lx_emul_task_schedule(true);
 
-		/* check restarting ticking which may stopped in idle task */
-		tick_nohz_idle_restart_tick();
-
+		local_irq_save(flags);
 		irq_enter();
 
 		irq = lx_emul_irq_last();
@@ -70,6 +68,7 @@ int lx_emul_irq_task_function(void * data)
 		}
 
 		irq_exit();
+		local_irq_restore(flags);
 	}
 
 	return 0;

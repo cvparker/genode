@@ -35,7 +35,7 @@ void Popup_dialog::_gen_pkg_elements(Xml_generator &xml,
 {
 	typedef Component::Info Info;
 
-	_gen_sub_menu_title(xml, "back", Menu::Name("Add ", Pretty(_construction_name)));
+	_gen_sub_menu_title(xml, "back", Index_menu::Name("Add ", Pretty(_construction_name)));
 
 	_gen_pkg_info(xml, component);
 
@@ -121,7 +121,7 @@ void Popup_dialog::_gen_pkg_elements(Xml_generator &xml,
 }
 
 
-void Popup_dialog::_gen_menu_elements(Xml_generator &xml) const
+void Popup_dialog::_gen_menu_elements(Xml_generator &xml, Xml_node const &depot_users) const
 {
 	/*
 	 * Lauchers
@@ -145,7 +145,7 @@ void Popup_dialog::_gen_menu_elements(Xml_generator &xml) const
 	if (_state == DEPOT_SHOWN || _state == INDEX_REQUESTED) {
 		_gen_sub_menu_title(xml, "back", "Depot");
 
-		_scan_rom.xml().for_each_sub_node("user", [&] (Xml_node user) {
+		depot_users.for_each_sub_node("user", [&] (Xml_node user) {
 
 			User const name = user.attribute_value("name", User());
 			bool const selected = (_selected_user == name);
@@ -170,7 +170,7 @@ void Popup_dialog::_gen_menu_elements(Xml_generator &xml) const
 	if (_state == DEPOT_SELECTION) {
 		_gen_sub_menu_title(xml, "back", "Selection");
 
-		_scan_rom.xml().for_each_sub_node("user", [&] (Xml_node user) {
+		depot_users.for_each_sub_node("user", [&] (Xml_node user) {
 
 			User const name = user.attribute_value("name", User());
 			bool const selected = _index_avail(name);
@@ -186,9 +186,9 @@ void Popup_dialog::_gen_menu_elements(Xml_generator &xml) const
 	 * Title of index
 	 */
 	if (_state >= INDEX_SHOWN && _state < PKG_SHOWN) {
-		Menu::Name title("Depot  ", _selected_user);
+		Index_menu::Name title("Depot  ", _selected_user);
 		if (_menu._level)
-			title = Menu::Name(title, "  ", _menu, " ");
+			title = Index_menu::Name(title, "  ", _menu, " ");
 
 		_gen_sub_menu_title(xml, "back", title);
 	}
@@ -204,8 +204,8 @@ void Popup_dialog::_gen_menu_elements(Xml_generator &xml) const
 			Hoverable_item::Id const id(cnt);
 
 			if (item.has_type("index")) {
-				auto const name = item.attribute_value("name", Menu::Name());
-				_gen_menu_entry(xml, id, Menu::Name(name, " ..."), false);
+				auto const name = item.attribute_value("name", Index_menu::Name());
+				_gen_menu_entry(xml, id, Index_menu::Name(name, " ..."), false);
 			}
 
 			if (item.has_type("pkg")) {
@@ -243,18 +243,31 @@ void Popup_dialog::_gen_menu_elements(Xml_generator &xml) const
 								 * inconsistent with the content contained in
 								 * the pkg's archives.
 								 */
-								if (!_pkg_missing && _pkg_rom_missing) {
+								if (_blueprint_info.incomplete()) {
 									_gen_info_label(xml, "pad2", "");
 									_gen_info_label(xml, "path", component.path);
 									_gen_info_label(xml, "pad3", "");
 									xml.node("label", [&] () {
 										xml.attribute("text", "installed but incomplete"); });
+
+									if (_nic_ready()) {
+										_gen_info_label(xml, "pad4", "");
+
+										gen_named_node(xml, "float", "install", [&] () {
+											xml.node("button", [&] () {
+												_install_item.gen_button_attr(xml, "install");
+												xml.node("label", [&] () {
+													xml.attribute("text", "Reattempt Install");
+												});
+											});
+										});
+									}
 								}
 
 								/*
 								 * Package is missing but can be installed
 								 */
-								else if (_pkg_missing && _nic_ready()) {
+								else if (_blueprint_info.uninstalled() && _nic_ready()) {
 
 									_gen_pkg_info(xml, component);
 									_gen_info_label(xml, "pad2", "");
@@ -273,7 +286,7 @@ void Popup_dialog::_gen_menu_elements(Xml_generator &xml) const
 								 * Package is missing and we cannot do anything
 								 * about it
 								 */
-								else if (_pkg_missing) {
+								else if (_blueprint_info.uninstalled()) {
 									_gen_info_label(xml, "pad2", "");
 									_gen_info_label(xml, "path", component.path);
 									_gen_info_label(xml, "pad3", "");
@@ -353,7 +366,7 @@ void Popup_dialog::click(Action &action)
 		} else {
 
 			if (!_index_avail(clicked))
-				action.trigger_download(_index_path(clicked));
+				action.trigger_download(_index_path(clicked), Verify{true});
 			else
 				action.remove_index(clicked);
 		}
@@ -369,13 +382,13 @@ void Popup_dialog::click(Action &action)
 
 			/* go one menu up */
 			if (clicked == "back") {
-				_menu._selected[_menu._level] = Menu::Name();
+				_menu._selected[_menu._level] = Index_menu::Name();
 				_menu._level--;
 				action.discard_construction();
 			} else {
 
 				/* enter sub menu of index */
-				if (_menu._level < Menu::MAX_LEVELS - 1) {
+				if (_menu._level < Index_menu::MAX_LEVELS - 1) {
 
 					unsigned cnt = 0;
 					_for_each_menu_item([&] (Xml_node item) {
@@ -384,8 +397,8 @@ void Popup_dialog::click(Action &action)
 
 							if (item.has_type("index")) {
 
-								Menu::Name const name =
-									item.attribute_value("name", Menu::Name());
+								Index_menu::Name const name =
+									item.attribute_value("name", Index_menu::Name());
 
 								_menu._selected[_menu._level] = name;
 								_menu._level++;
@@ -395,10 +408,10 @@ void Popup_dialog::click(Action &action)
 								auto path = item.attribute_value("path", Component::Path());
 								auto info = item.attribute_value("info", Component::Info());
 
-								_construction_name = action.new_construction(path, info);
+								_construction_name =
+									action.new_construction(path, Verify{true}, info);
 
 								_state = PKG_REQUESTED;
-								_pkg_missing = false;
 								_depot_query.trigger_depot_query();
 							}
 						}

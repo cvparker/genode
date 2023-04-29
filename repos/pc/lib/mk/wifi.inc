@@ -9,14 +9,14 @@ LD_OPT += --version-script=$(TARGET_LIB_DIR)/symbol.map
 LIBS    += base jitterentropy pc_linux_generated pc_lx_emul
 INC_DIR := $(TARGET_LIB_DIR)
 SRC_CC  += wlan.cc
-SRC_CC  += misc.cc
 SRC_CC  += firmware.cc
 SRC_CC  += socket_call.cc
 SRC_CC  += lx_emul/random.cc
-SRC_CC  += time.cc
+SRC_CC  += dtb_helper.cc
 
 SRC_C   += dummies.c
 SRC_C   += lx_emul.c
+SRC_C   += lx_emul_pci.c
 SRC_C   += lx_user.c
 SRC_C   += uplink.c
 

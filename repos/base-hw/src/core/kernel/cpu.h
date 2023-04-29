@@ -15,8 +15,6 @@
 #ifndef _CORE__KERNEL__CPU_H_
 #define _CORE__KERNEL__CPU_H_
 
-#include <util/reconstructible.h>
-
 /* core includes */
 #include <board.h>
 #include <kernel/cpu_context.h>
@@ -66,7 +64,7 @@ namespace Kernel {
  */
 #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
 
-class Kernel::Cpu : public Genode::Cpu, private Irq::Pool, private Timeout
+class Kernel::Cpu : public Core::Cpu, private Irq::Pool, private Timeout
 {
 	private:
 
@@ -86,6 +84,9 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool, private Timeout
 			 * \param cpu  cpu this IPI belongs to
 			 */
 			Ipi(Cpu & cpu);
+
+
+			void init();
 
 
 			/*********************
@@ -109,7 +110,20 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool, private Timeout
 			            Pd                                &core_pd);
 		};
 
+		struct Halt_job : Job
+		{
+			Halt_job() : Job (0, 0) { }
 
+			void exception(Kernel::Cpu &) override { }
+
+			void proceed(Kernel::Cpu &) override;
+
+			Kernel::Cpu_job* helping_destination() override { return this; }
+		} _halt_job { };
+
+		enum State { RUN, HALT, SUSPEND };
+
+		State          _state { RUN };
 		unsigned const _id;
 		Board::Pic     _pic;
 		Timer          _timer;
@@ -125,6 +139,11 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool, private Timeout
 		unsigned _fill() const  { return (unsigned)_timer.us_to_ticks(cpu_fill_us); }
 
 	public:
+
+		void next_state_halt()    { _state = HALT; };
+		void next_state_suspend() { _state = SUSPEND; };
+
+		State state() { return _state; }
 
 		enum { KERNEL_STACK_SIZE = 16 * 1024 * sizeof(Genode::addr_t) };
 
@@ -171,8 +190,8 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool, private Timeout
 		/**
 		 * Returns the currently active job
 		 */
-		Job & scheduled_job() const {
-			return *static_cast<Job *>(&_scheduler.head())->helping_sink(); }
+		Job & scheduled_job() {
+			return *static_cast<Job *>(&_scheduler.head())->helping_destination(); }
 
 		unsigned id() const { return _id; }
 		Cpu_scheduler &scheduler() { return _scheduler; }
@@ -186,6 +205,12 @@ class Kernel::Cpu : public Genode::Cpu, private Irq::Pool, private Timeout
 		 * Return CPU's idle thread object
 		 */
 		Kernel::Thread &idle_thread() { return _idle; }
+
+		void reinit_cpu()
+		{
+			_arch_init();
+			_state = RUN;
+		}
 };
 
 
@@ -201,7 +226,7 @@ class Kernel::Cpu_pool
 
 		Inter_processor_work_list  _global_work_list {};
 		unsigned                   _nr_of_cpus;
-		Genode::Constructible<Cpu> _cpus[NR_OF_CPUS];
+		Genode::Constructible<Cpu> _cpus[Board::NR_OF_CPUS];
 
 	public:
 
@@ -212,6 +237,12 @@ class Kernel::Cpu_pool
 		                         Irq::Pool                          &user_irq_pool,
 		                         Pd                                 &core_pd,
 		                         Board::Global_interrupt_controller &global_irq_ctrl);
+
+		/**
+		 * Return whether CPU object is valid and is constructed.
+		 */
+		bool cpu_valid(unsigned const id) const {
+			return id < _nr_of_cpus && _cpus[id].constructed(); }
 
 		/**
 		 * Return object of CPU 'id'

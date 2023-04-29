@@ -20,9 +20,6 @@
 #include <linux/interrupt.h>
 
 
-extern void lx_backtrace(void);
-
-
 int arch_probe_nr_irqs(void)
 {
 	/* needed for 'irq_get_irq_data()' in 'pci_assign_irq()' below */
@@ -87,6 +84,8 @@ static void pci_add_resource_to_device_callback(void        * data,
 	dev->resource[number].end   = dev->resource[number].start + size - 1;
 	if (io_port)
 		dev->resource[number].flags |= IORESOURCE_IO;
+	else
+		dev->resource[number].flags |= IORESOURCE_MEM;
 }
 
 
@@ -159,23 +158,27 @@ static void pci_add_single_device_callback(void       * data,
 static int __init pci_subsys_init(void)
 {
 	struct pci_bus *b;
-	struct pci_sysdata *sd;
 
 	/* pci_alloc_bus(NULL) */
 	b = kzalloc(sizeof (struct pci_bus), GFP_KERNEL);
 	if (!b)
 		return -ENOMEM;
 
-	sd = kzalloc(sizeof (struct pci_sysdata), GFP_KERNEL);
-	if (!sd) {
-		kfree(b);
-		return -ENOMEM;
+#ifdef CONFIG_X86
+	{
+		struct pci_sysdata *sd;
+		sd = kzalloc(sizeof (struct pci_sysdata), GFP_KERNEL);
+		if (!sd) {
+			kfree(b);
+			return -ENOMEM;
+		}
+
+		/* needed by intel_fb */
+		sd->domain = 0;
+
+		b->sysdata = sd;
 	}
-
-	/* needed by intel_fb */
-	sd->domain = 0;
-
-	b->sysdata = sd;
+#endif /* CONFIG_X86 */
 
 	INIT_LIST_HEAD(&b->node);
 	INIT_LIST_HEAD(&b->children);

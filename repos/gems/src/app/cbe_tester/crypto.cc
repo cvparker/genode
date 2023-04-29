@@ -43,15 +43,12 @@ Crypto::Key_directory &Crypto::_lookup_key_dir(uint32_t key_id)
 }
 
 
-Crypto::Crypto(Vfs::Env                  &env,
-       Xml_node            const &crypto,
-       Signal_context_capability  sigh)
+Crypto::Crypto(Vfs::Env &env, Xml_node const &crypto)
 :
-	_env                     { env },
-	_path                    { crypto.attribute_value("path", String<32>()) },
-	_add_key_handle          { vfs_open_wo(env, { _path.string(), "/add_key" }) },
-	_remove_key_handle       { vfs_open_wo(env, { _path.string(), "/remove_key" }) },
-	_vfs_io_response_handler { sigh }
+	_env               { env },
+	_path              { crypto.attribute_value("path", String<32>()) },
+	_add_key_handle    { vfs_open_wo(env, { _path.string(), "/add_key" }) },
+	_remove_key_handle { vfs_open_wo(env, { _path.string(), "/remove_key" }) }
 { }
 
 
@@ -69,13 +66,15 @@ Crypto::Result Crypto::add_key(Key const &key)
 	       key.value, sizeof (key.value));
 
 	_add_key_handle.seek(0);
-	file_size nr_of_written_bytes { 0 };
+
+	size_t written_bytes = 0;
 
 	using Write_result = Vfs::File_io_service::Write_result;
 
+	Const_byte_range_ptr const src(buffer, sizeof(buffer));
+
 	Write_result const result =
-		_add_key_handle.fs().write(&_add_key_handle, buffer, sizeof (buffer),
-		                           nr_of_written_bytes);
+		_add_key_handle.fs().write(&_add_key_handle, src, written_bytes);
 
 	if (result == Write_result::WRITE_ERR_WOULD_BLOCK)
 		return Result::RETRY_LATER;
@@ -89,23 +88,21 @@ Crypto::Result Crypto::add_key(Key const &key)
 		_env, { _path.string(), "/keys/", key.id.value, "/decrypt" });
 
 	key_dir.key_id = key.id.value;
-	key_dir.encrypt_handle->handler(&_vfs_io_response_handler);
-	key_dir.decrypt_handle->handler(&_vfs_io_response_handler);
 	return Result::SUCCEEDED;
 }
 
 
 Crypto::Result Crypto::remove_key(Cbe::Key::Id key_id)
 {
-	Vfs::file_size written = 0;
+	size_t written_bytes = 0;
 	_remove_key_handle.seek(0);
 
+	Const_byte_range_ptr const src((char *)&key_id.value, sizeof(key_id.value));
+
 	using Write_result = Vfs::File_io_service::Write_result;
+
 	Write_result const result =
-		_remove_key_handle.fs().write(&_remove_key_handle,
-		                              (char const*)&key_id.value,
-		                              sizeof (key_id.value),
-		                              written);
+		_remove_key_handle.fs().write(&_remove_key_handle, src, written_bytes);
 
 	if (result == Write_result::WRITE_ERR_WOULD_BLOCK)
 		return Result::RETRY_LATER;
@@ -200,14 +197,14 @@ void Crypto::_execute_decrypt_block(Job                  &job,
 	case Job_state::SUBMITTED:
 	{
 		job.handle->seek(job.request.block_number() * Cbe::BLOCK_SIZE);
-		file_size nr_of_written_bytes { 0 };
 
-		job.handle->fs().write(
-			job.handle,
-			reinterpret_cast<char const*>(
-				&cipher_buf.item(job.cipher_buf_idx)),
-			file_size(sizeof (Cbe::Block_data)),
-			nr_of_written_bytes);
+		size_t written_bytes = 0;
+
+		Const_byte_range_ptr const src(
+			reinterpret_cast<char const*>(&cipher_buf.item(job.cipher_buf_idx)),
+			sizeof(Cbe::Block_data));
+
+		job.handle->fs().write( job.handle, src, written_bytes);
 
 		job.state = Job_state::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -229,14 +226,14 @@ void Crypto::_execute_decrypt_block(Job                  &job,
 	}
 	case Job_state::READING_VFS_HANDLE_SUCCEEDED:
 	{
-		file_size nr_of_read_bytes { 0 };
+		size_t read_bytes = 0;
+
+		Byte_range_ptr const dst(
+			reinterpret_cast<char *>(&plain_buf.item(job.plain_buf_idx)),
+			sizeof(Cbe::Block_data));
+
 		Read_result const result =
-			job.handle->fs().complete_read(
-				job.handle,
-				reinterpret_cast<char *>(
-					&plain_buf.item(job.plain_buf_idx)),
-				sizeof (Cbe::Block_data),
-				nr_of_read_bytes);
+			job.handle->fs().complete_read(job.handle, dst, read_bytes);
 
 		switch (result) {
 		case Read_result::READ_QUEUED:          return;
@@ -264,14 +261,15 @@ void Crypto::_execute_encrypt_block(Job                  &job,
 	case Job_state::SUBMITTED:
 	{
 		job.handle->seek(job.request.block_number() * Cbe::BLOCK_SIZE);
-		file_size nr_of_written_bytes { 0 };
 
-		job.handle->fs().write(
-			job.handle,
+		size_t written_bytes = 0;
+
+		Const_byte_range_ptr const src(
 			reinterpret_cast<char const*>(
 				&plain_buf.item(job.plain_buf_idx)),
-			file_size(sizeof (Cbe::Block_data)),
-			nr_of_written_bytes);
+			sizeof(Cbe::Block_data));
+
+		job.handle->fs().write(job.handle, src, written_bytes);
 
 		job.state = Job_state::OP_WRITTEN_TO_VFS_HANDLE;
 		progress = true;
@@ -293,14 +291,14 @@ void Crypto::_execute_encrypt_block(Job                  &job,
 	}
 	case Job_state::READING_VFS_HANDLE_SUCCEEDED:
 	{
-		file_size nr_of_read_bytes { 0 };
-		Read_result const result {
-			job.handle->fs().complete_read(
-				job.handle,
-				reinterpret_cast<char *>(
-					&cipher_buf.item(job.cipher_buf_idx)),
-				sizeof (Cbe::Block_data),
-				nr_of_read_bytes) };
+		size_t read_bytes = 0;
+
+		Byte_range_ptr const dst(
+			reinterpret_cast<char *>(&cipher_buf.item(job.cipher_buf_idx)),
+			sizeof (Cbe::Block_data));
+
+		Read_result const result =
+			job.handle->fs().complete_read(job.handle, dst, read_bytes);
 
 		switch (result) {
 		case Read_result::READ_QUEUED:          return;

@@ -97,11 +97,11 @@ class Kernel::Vm : private Kernel::Object, public Cpu_job
 		 *
 		 * \retval cap id when successful, otherwise invalid cap id
 		 */
-		static capid_t syscall_create(Genode::Kernel_object<Vm> & vm,
-		                              unsigned                    cpu,
-		                              void * const                state,
-		                              capid_t const               signal_context_id,
-		                              Identity                  & id)
+		static capid_t syscall_create(Core::Kernel_object<Vm> &vm,
+		                              unsigned                 cpu,
+		                              void * const             state,
+		                              capid_t const            signal_context_id,
+		                              Identity                &id)
 		{
 			return (capid_t)call(call_id_new_vm(), (Call_arg)&vm, (Call_arg)cpu,
 			                     (Call_arg)state, (Call_arg)&id, signal_context_id);
@@ -114,7 +114,7 @@ class Kernel::Vm : private Kernel::Object, public Cpu_job
 		 *
 		 * \retval 0 when successful, otherwise !=0
 		 */
-		static void syscall_destroy(Genode::Kernel_object<Vm> & vm) {
+		static void syscall_destroy(Core::Kernel_object<Vm> & vm) {
 			call(call_id_delete_vm(), (Call_arg) &vm); }
 
 		Object &kernel_object() { return _kernel_object; }
@@ -142,9 +142,9 @@ class Kernel::Vm : private Kernel::Object, public Cpu_job
 		 ** Cpu_job **
 		 *************/
 
-		void exception(Cpu & cpu) override;
-		void proceed(Cpu &  cpu)  override;
-		Cpu_job * helping_sink()  override { return this; }
+		void exception(Cpu & cpu)       override;
+		void proceed(Cpu &  cpu)        override;
+		Cpu_job * helping_destination() override { return this; }
 };
 
 #endif /* _CORE__KERNEL__VM_H_ */

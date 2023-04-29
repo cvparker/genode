@@ -17,6 +17,7 @@
 #include <block_session/connection.h>
 #include <rump/env.h>
 #include <rump_fs/fs.h>
+#include <format/snprintf.h>
 
 static const bool verbose = false;
 
@@ -227,7 +228,7 @@ class Backend
 				.type         = (op & RUMPUSER_BIO_WRITE)
 				              ? Block::Operation::Type::WRITE
 				              : Block::Operation::Type::READ,
-				.block_number = offset / _info.block_size,
+				.block_number = block_number_t(offset / _info.block_size),
 				.count        = length / _info.block_size };
 
 			bool const success = _synchronous_io(data, operation);
@@ -361,7 +362,7 @@ void rumpuser_dprintf(const char *format, ...)
 	va_start(list, format);
 
 	char buf[128] { };
-	Genode::String_console(buf, sizeof(buf)).vprintf(format, list);
+	Format::String_console(buf, sizeof(buf)).vprintf(format, list);
 	Genode::log(Genode::Cstring(buf));
 
 	va_end(list);

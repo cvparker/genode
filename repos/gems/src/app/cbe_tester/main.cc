@@ -298,17 +298,17 @@ class Vfs_block_io_job
 
 			case State::IN_PROGRESS:
 			{
-				file_size nr_of_read_bytes { 0 };
+				size_t read_bytes = 0;
 
 				char *const data {
 					reinterpret_cast<char *>(
 						&io_data.item(_cbe_req_io_buf_idx(_cbe_req))) };
 
-				Result const result {
-					_handle.fs().complete_read(&_handle,
-					                           data + _nr_of_processed_bytes,
-					                           _nr_of_remaining_bytes,
-					                           nr_of_read_bytes) };
+				Byte_range_ptr const dst(data + _nr_of_processed_bytes,
+				                         _nr_of_remaining_bytes);
+
+				Result const result =
+					_handle.fs().complete_read(&_handle, dst, read_bytes);
 
 				switch (result) {
 				case Result::READ_QUEUED:
@@ -318,8 +318,8 @@ class Vfs_block_io_job
 
 				case Result::READ_OK:
 
-					_nr_of_processed_bytes += nr_of_read_bytes;
-					_nr_of_remaining_bytes -= nr_of_read_bytes;
+					_nr_of_processed_bytes += read_bytes;
+					_nr_of_remaining_bytes -= read_bytes;
 
 					if (_nr_of_remaining_bytes == 0) {
 
@@ -385,17 +385,17 @@ class Vfs_block_io_job
 
 			case State::IN_PROGRESS:
 			{
-				file_size nr_of_written_bytes { 0 };
+				size_t written_bytes = 0;
 
 				char const *const data {
 					reinterpret_cast<char *>(
 						&io_data.item(_cbe_req_io_buf_idx(_cbe_req))) };
 
+				Const_byte_range_ptr const src(data + _nr_of_processed_bytes,
+				                               _nr_of_remaining_bytes);
+
 				Result const result =
-					_handle.fs().write(&_handle,
-					                   data + _nr_of_processed_bytes,
-					                   _nr_of_remaining_bytes,
-					                   nr_of_written_bytes);
+					_handle.fs().write(&_handle, src, written_bytes);
 
 				switch (result) {
 				case Result::WRITE_ERR_WOULD_BLOCK:
@@ -403,8 +403,8 @@ class Vfs_block_io_job
 
 				case Result::WRITE_OK:
 
-					_nr_of_processed_bytes += nr_of_written_bytes;
-					_nr_of_remaining_bytes -= nr_of_written_bytes;
+					_nr_of_processed_bytes += written_bytes;
+					_nr_of_remaining_bytes -= written_bytes;
 
 					if (_nr_of_remaining_bytes == 0) {
 
@@ -571,7 +571,6 @@ class Vfs_block_io : public Block_io
 
 		String<32>                const  _path;
 		Vfs::Env                        &_vfs_env;
-		Vfs_io_response_handler          _vfs_io_response_handler;
 		Vfs::Vfs_handle                 &_vfs_handle { *_init_vfs_handle(_vfs_env, _path) };
 		Constructible<Vfs_block_io_job>  _job        { };
 
@@ -600,18 +599,13 @@ class Vfs_block_io : public Block_io
 
 	public:
 
-		Vfs_block_io(Vfs::Env                  &vfs_env,
-		             Xml_node            const &block_io,
-		             Signal_context_capability  sigh)
+		Vfs_block_io(Vfs::Env       &vfs_env,
+		             Xml_node const &block_io)
 		:
-			_path                    { block_io.attribute_value(
-			                              "path", String<32> { "" } ) },
-
-			_vfs_env                 { vfs_env },
-			_vfs_io_response_handler { sigh }
-		{
-			_vfs_handle.handler(&_vfs_io_response_handler);
-		}
+			_path { block_io.attribute_value(
+			           "path", String<32> { "" } ) },
+			_vfs_env { vfs_env }
+		{ }
 
 
 		/**************
@@ -1602,7 +1596,7 @@ class Command_pool {
 };
 
 
-class Main
+class Main : Vfs::Env::User
 {
 	private:
 
@@ -1610,7 +1604,7 @@ class Main
 		Attached_rom_dataspace       _config_rom           { _env, "config" };
 		Verbose_node                 _verbose_node         { _config_rom.xml() };
 		Heap                         _heap                 { _env.ram(), _env.rm() };
-		Vfs::Simple_env              _vfs_env              { _env, _heap, _config_rom.xml().sub_node("vfs") };
+		Vfs::Simple_env              _vfs_env              { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
 		Signal_handler<Main>         _sigh                 { _env.ep(), *this, &Main::_execute };
 		Block_io                    &_blk_io               { _init_blk_io(_config_rom.xml(), _heap, _env, _vfs_env, _sigh) };
 		Io_buffer                    _blk_buf              { };
@@ -1620,12 +1614,11 @@ class Main
 		Cbe_dump::Library            _cbe_dump             { };
 		Cbe_init::Library            _cbe_init             { };
 		Benchmark                    _benchmark            { _env };
-		Trust_anchor                 _trust_anchor         { _vfs_env, _config_rom.xml().sub_node("trust-anchor"), _sigh };
+		Trust_anchor                 _trust_anchor         { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
 		Crypto_plain_buffer          _crypto_plain_buf     { };
 		Crypto_cipher_buffer         _crypto_cipher_buf    { };
 		Crypto                       _crypto               { _vfs_env,
-		                                                     _config_rom.xml().sub_node("crypto"),
-		                                                     _sigh };
+		                                                     _config_rom.xml().sub_node("crypto") };
 
 		Block_io &_init_blk_io(Xml_node            const &config,
 		                       Heap                      &heap,
@@ -1640,12 +1633,16 @@ class Main
 			}
 			if (block_io.attribute("type").has_value("vfs")) {
 				return *new (heap)
-					Vfs_block_io {
-						vfs_env, block_io, sigh };
+					Vfs_block_io { vfs_env, block_io };
 			}
 			class Malformed_attribute { };
 			throw Malformed_attribute { };
 		}
+
+		/**
+		 * Vfs::Env::User interface
+		 */
+		void wakeup_vfs_user() override { _sigh.local_submit(); }
 
 		template <typename MODULE>
 		void _handle_pending_blk_io_requests_of_module(MODULE      &module,

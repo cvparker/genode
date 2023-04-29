@@ -21,7 +21,7 @@
 #include <port_io.h>
 #include <platform.h>
 
-using namespace Genode;
+using namespace Core;
 using namespace Board;
 
 enum {
@@ -42,6 +42,11 @@ Local_interrupt_controller(Global_interrupt_controller &global_irq_ctrl)
 :
 	Mmio             { Platform::mmio_to_virt(Hw::Cpu_memory_map::lapic_phys_base()) },
 	_global_irq_ctrl { global_irq_ctrl }
+{
+	init();
+}
+
+void Local_interrupt_controller::init()
 {
 	/* Start initialization sequence in cascade mode */
 	outb(PIC_CMD_MASTER, 0x11);
@@ -246,17 +251,24 @@ Global_interrupt_controller::Global_interrupt_controller()
 			_irq_mode[i].trigger_mode = TRIGGER_LEVEL;
 			_irq_mode[i].polarity = POLARITY_LOW;
 		}
-
-		/* remap all IRQs managed by I/O APIC */
-		if (i < _irte_count) {
-			Irte::access_t irte = _create_irt_entry(i);
-			write<Ioregsel>(IOREDTBL + 2 * i + 1);
-			write<Iowin>((Iowin::access_t)(irte >> Iowin::ACCESS_WIDTH));
-			write<Ioregsel>(IOREDTBL + 2 * i);
-			write<Iowin>((Iowin::access_t)(irte));
-		}
 	}
-};
+
+	init();
+}
+
+
+void Global_interrupt_controller::init()
+{
+	/* remap all IRQs managed by I/O APIC */
+	for (unsigned i = 0; i < _irte_count; i++)
+	{
+		Irte::access_t irte = _create_irt_entry(i);
+		write<Ioregsel>(IOREDTBL + 2 * i + 1);
+		write<Iowin>((Iowin::access_t)(irte >> Iowin::ACCESS_WIDTH));
+		write<Ioregsel>(IOREDTBL + 2 * i);
+		write<Iowin>((Iowin::access_t)(irte));
+	}
+}
 
 
 void Global_interrupt_controller::toggle_mask(unsigned const vector,

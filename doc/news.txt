@@ -4,6 +4,107 @@
                                ===========
 
 
+Sculpt OS release 23.04 | 2023-04-28
+####################################
+
+| Sculpt OS 23.04 marks the first-time PinePhone support in addition to the PC
+| version. With this release, the system supports live upgrades of the boot
+| image, rendering Sculpt updates and switching between versions a matter some
+| easy steps. The new preset feature brings entire application scenarios to
+| your screen after just one click/tap.
+
+With the fresh release 23.04, the Sculpt operating system boards the PinePhone
+to explore the mobile world and, thereby, adds a second platform to its
+year-long support for Intel PCs. In preparation, we added two key features to
+Genode during the past months, which are the phone-oriented Sculpt
+user-interface variant and the system-update functionality. Now, Sculpt
+versions can be switched by three easy steps directly in the integrated user
+interface: downloading system images to the software depot, install the
+desired version on the boot medium, and reboot the device.
+
+Further, the release supports so-called presets in the system menu UI, which
+are entire runtime scenarios. The user can load and switch between presets by
+just one click. Presets currently available in Sculpt are a simple GUI demo
+(nano3d), a simple desktop including background picture and window manager,
+and a ready to use Falkon web browser. Still, components can be integrated
+into the system (or the currently running preset) by the + menu of the
+component graph.
+
+Sculpt OS 23.04 for PC and PinePhone is available as ready-to-use system image
+at the [https://genode.org/download/sculpt - Sculpt download page] accompanied
+with updated [https://genode.org/documentation/articles/sculpt-23-04 - documentation].
+
+
+Genode OS Framework release 23.02 | 2023-02-28
+##############################################
+
+| Version 23.02 introduces system-update functionality to the mobile version
+| of Sculpt OS, enhances our ARM VMM for interactive guest OSes, adds DMA
+| protection to Xilinx Zynq via a custom IP core, extends suspend/resume
+| support, and makes Intel's P&E cores explicitly manageable.
+
+For the first time, Genode has become easily installable on the PinePhone.
+The first system image is not merely a re-targeted PC version of Sculpt OS but
+it comes with a novel user interface, a new mechanism for rapidly switching
+between different application scenarios, and system-update functionality. This
+is everything we need to kick off the first public field test of Genode on the
+phone. This line of development motivated plenty of optimizations - from
+kernel scheduling, over the I/O throughput of the VFS, to the interfacing of
+GPU drivers - that made it into version 23.02.
+
+Besides the focus on the phone, the release continues the hardware-software
+co-design story of the previous version by adding DMA protection to Xilinx
+Zynq SoCs using custom FPGA fabric, which is especially tailored for Genode.
+But also stationary platforms like PCs and ARM laptops received attention.
+On ARM, we enabled the use of interactive virtual machines by adding
+device models for the GPU and input events. For the PC, the principle support
+for suspend/resume has become available to Genode's custom microkernel in
+addition to NOVA, and Genode learned to distinguish Intel's performance cores
+from energy-efficient cores.
+
+Regarding application workloads, the new release is accompanied by a
+substantially improved version of the Goa tool, which streamlines the
+creation, packaging, and publishing of Genode components using commodity
+build systems. With the new version, Goa largely automates the
+porting of CMake-based 3rd-party libraries for Genode.
+
+Find these among many more topics covered by the official
+[https:/documentation/release-notes/23.02 - release documentation of version 23.02...]
+
+
+Road Map for 2023 | 2023-01-17
+##############################
+
+| In 2023, we will make the mobile version of Sculpt OS fit for end users,
+| unleash advanced hardware features of Intel platforms,
+| switch to C++20 by default, and run the feature-complete PC version
+| of Sculpt OS on Genode's custom-tailored microkernel.
+
+After having enabled all hardware features of the PinePhone that are
+fundamental for a mobile phone over the course of the past year, the
+project now aims at getting the mobile version of Sculpt OS into the hands of
+end users. Throughout the year, there will be multiple rounds of field tests
+within the community, allowing us to reach the desired state of maturity and
+usefulness in an iterative way.
+
+On PC platforms, Genode will increasingly address advanced platform features
+like the distinction between power-efficient and high-performance cores, the
+management of temperatures and frequencies, or the practical use of
+suspend/resume. By the end of the year, we envision the PC version of Sculpt
+OS running on Genode's custom-tailored microkernel leveraging all those
+aspects of modern PC hardware.
+
+Along the planned timeline of the project, one can spot plenty of additional
+topics of interest such as the continued line of work of combining Genode
+with FPGAs, applications implemented in Rust, the integration of IPv6, the
+use of C++20 by default, or completed driver support for the MNT Reform laptop.
+An exciting year lies ahead of us!
+
+More details including our reflections of the past year, this year's focus,
+and a rough schedule are presented at our official
+[https:/about/road-map - road-map page].
+
+
 Genode OS Framework release 22.11 | 2022-11-30
 ##############################################
 

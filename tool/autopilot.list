@@ -5,6 +5,7 @@ cpu_balancer
 cpu_bench
 cpu_quota
 cpu_sampler
+cpu_scheduler
 demo
 depot_autopilot
 depot_download
@@ -73,6 +74,7 @@ timeout_smp
 timer_accuracy
 tool_chain_auto
 tz_vmm
+usb_block
 usb_hid_raw
 usb_hid_reconnect
 vbox5_genode_usb_hid_raw

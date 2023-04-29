@@ -17,7 +17,6 @@
 #include <linux/of_irq.h>
 #include <linux/slab.h>
 #include <linux/irqchip.h>
-#include <linux/tick.h>
 #include <../kernel/irq/internals.h>
 
 static int dde_irq_set_wake(struct irq_data *d, unsigned int on)
@@ -29,6 +28,7 @@ static int dde_irq_set_wake(struct irq_data *d, unsigned int on)
 
 static void dde_irq_unmask(struct irq_data *d)
 {
+	lx_emul_irq_eoi(d->hwirq);
 	lx_emul_irq_unmask(d->hwirq);
 }
 
@@ -53,7 +53,7 @@ static int dde_irq_set_type(struct irq_data *d, unsigned int type)
 }
 
 
-static struct irq_chip dde_irqchip_data_chip = {
+struct irq_chip dde_irqchip_data_chip = {
 	.name           = "dde-irqs",
 	.irq_eoi        = dde_irq_eoi,
 	.irq_mask       = dde_irq_mask,
@@ -166,6 +166,7 @@ IRQCHIP_DECLARE(dde_gic_400, "arm,gic-400",       lx_emul_irq_init);
 int lx_emul_irq_task_function(void * data)
 {
 	int irq;
+	unsigned long flags;
 
 	for (;;) {
 		lx_emul_task_schedule(true);
@@ -173,12 +174,12 @@ int lx_emul_irq_task_function(void * data)
 		if (!dde_irq_domain)
 			continue;
 
-		/* check restarting ticking which may stopped in idle task */
-		tick_nohz_idle_restart_tick();
-
+		local_irq_save(flags);
 		irq_enter();
 
-		irq = irq_find_mapping(dde_irq_domain, lx_emul_irq_last());
+		irq = dde_irq_domain ? irq_find_mapping(dde_irq_domain,
+		                                        lx_emul_irq_last())
+		                     : lx_emul_irq_last();
 
 		if (!irq) {
 			ack_bad_irq(irq);
@@ -188,6 +189,7 @@ int lx_emul_irq_task_function(void * data)
 		}
 
 		irq_exit();
+		local_irq_restore(flags);
 	}
 
 	return 0;

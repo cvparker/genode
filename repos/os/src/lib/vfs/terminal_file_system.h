@@ -58,6 +58,8 @@ class Vfs::Terminal_file_system::Data_file_system : public Single_file_system
 
 		Genode::Entrypoint &_ep;
 
+		Vfs::Env::User &_vfs_user;
+
 		Terminal::Connection &_terminal;
 
 		Interrupt_handler &_interrupt_handler;
@@ -110,15 +112,16 @@ class Vfs::Terminal_file_system::Data_file_system : public Single_file_system
 		struct Terminal_vfs_handle : Single_vfs_handle
 		{
 			Terminal::Connection &_terminal;
+			Vfs::Env::User       &_vfs_user;
 			Read_buffer          &_read_buffer;
 			Interrupt_handler    &_interrupt_handler;
 
 			bool const _raw;
 
 			bool notifying = false;
-			bool blocked   = false;
 
 			Terminal_vfs_handle(Terminal::Connection &terminal,
+			                    Vfs::Env::User       &vfs_user,
 			                    Read_buffer          &read_buffer,
 			                    Interrupt_handler    &interrupt_handler,
 			                    Directory_service    &ds,
@@ -129,6 +132,7 @@ class Vfs::Terminal_file_system::Data_file_system : public Single_file_system
 			:
 				Single_vfs_handle(ds, fs, alloc, flags),
 				_terminal(terminal),
+				_vfs_user(vfs_user),
 				_read_buffer(read_buffer),
 				_interrupt_handler(interrupt_handler),
 				_raw(raw)
@@ -145,31 +149,27 @@ class Vfs::Terminal_file_system::Data_file_system : public Single_file_system
 				return true;
 			}
 
-			Read_result read(char *dst, file_size count,
-			                 file_size &out_count) override
+			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
 				if (_read_buffer.empty())
 					_fetch_data_from_terminal(_terminal, _read_buffer,
 					                          _interrupt_handler, _raw);
 
-				if (_read_buffer.empty()) {
-					blocked = true;
+				if (_read_buffer.empty())
 					return READ_QUEUED;
-				}
 
 				unsigned consumed = 0;
-				for (; consumed < count && !_read_buffer.empty(); consumed++)
-					dst[consumed] = _read_buffer.get();
+				for (; consumed < dst.num_bytes && !_read_buffer.empty(); consumed++)
+					dst.start[consumed] = _read_buffer.get();
 
 				out_count = consumed;
 
 				return READ_OK;
 			}
 
-			Write_result write(char const *src, file_size count,
-			                   file_size &out_count) override
+			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
-				out_count = _terminal.write(src, (size_t)count);
+				out_count = _terminal.write(src.start, src.num_bytes);
 				return WRITE_OK;
 			}
 		};
@@ -201,21 +201,19 @@ class Vfs::Terminal_file_system::Data_file_system : public Single_file_system
 			                          _raw);
 
 			_handle_registry.for_each([] (Registered_handle &handle) {
-				if (handle.blocked) {
-					handle.blocked = false;
-					handle.io_progress_response();
-				}
-
 				if (handle.notifying) {
 					handle.notifying = false;
 					handle.read_ready_response();
 				}
 			});
+
+			_vfs_user.wakeup_vfs_user();
 		}
 
 	public:
 
 		Data_file_system(Genode::Entrypoint   &ep,
+		                 Vfs::Env::User       &vfs_user,
 		                 Terminal::Connection &terminal,
 		                 Name           const &name,
 		                 Interrupt_handler    &interrupt_handler,
@@ -223,7 +221,7 @@ class Vfs::Terminal_file_system::Data_file_system : public Single_file_system
 		:
 			Single_file_system(Node_type::TRANSACTIONAL_FILE, name.string(),
 			                   Node_rwx::rw(), Genode::Xml_node("<data/>")),
-			_name(name), _ep(ep), _terminal(terminal),
+			_name(name), _ep(ep), _vfs_user(vfs_user), _terminal(terminal),
 			_interrupt_handler(interrupt_handler),
 			_raw(raw)
 		{
@@ -243,9 +241,9 @@ class Vfs::Terminal_file_system::Data_file_system : public Single_file_system
 
 			try {
 				*out_handle = new (alloc)
-					Registered_handle(_handle_registry, _terminal, _read_buffer,
-					                  _interrupt_handler, *this, *this, alloc, flags,
-					                  _raw);
+					Registered_handle(_handle_registry, _terminal, _vfs_user,
+					                  _read_buffer, _interrupt_handler,
+					                  *this, *this, alloc, flags, _raw);
 				return OPEN_OK;
 			}
 			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
@@ -274,11 +272,13 @@ struct Vfs::Terminal_file_system::Local_factory : File_system_factory,
 
 	Genode::Env &_env;
 
+	Vfs::Env::User &_vfs_user;
+
 	Terminal::Connection _terminal { _env, _label.string() };
 
 	bool const _raw;
 
-	Data_file_system _data_fs { _env.ep(), _terminal, _name, *this, _raw };
+	Data_file_system _data_fs { _env.ep(), _vfs_user, _terminal, _name, *this, _raw };
 
 	struct Info
 	{
@@ -336,6 +336,7 @@ struct Vfs::Terminal_file_system::Local_factory : File_system_factory,
 		_label(config.attribute_value("label", Label(""))),
 		_name(name(config)),
 		_env(env.env()),
+		_vfs_user(env.user()),
 		_raw(config.attribute_value("raw", false))
 	{
 		_terminal.size_changed_sigh(_size_changed_handler);

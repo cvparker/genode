@@ -1,6 +1,5 @@
 LIBS = cxx
 
-SRC_CC  += bootstrap/env.cc
 SRC_CC  += bootstrap/init.cc
 SRC_CC  += bootstrap/lock.cc
 SRC_CC  += bootstrap/log.cc
@@ -9,7 +8,6 @@ SRC_CC  += bootstrap/thread.cc
 SRC_CC  += hw/capability.cc
 SRC_CC  += lib/base/allocator_avl.cc
 SRC_CC  += lib/base/avl_tree.cc
-SRC_CC  += lib/base/console.cc
 SRC_CC  += lib/base/elf_binary.cc
 SRC_CC  += lib/base/heap.cc
 SRC_CC  += lib/base/registry.cc
@@ -25,10 +23,6 @@ REP_INC_DIR += src/bootstrap
 REP_INC_DIR += src/include
 REP_INC_DIR += src/core/include # for boot_modules.h only
 
-# configure multiprocessor mode
-NR_OF_CPUS ?= 1
-CC_OPT += -Wa,--defsym -Wa,NR_OF_CPUS=$(NR_OF_CPUS) -DNR_OF_CPUS=$(NR_OF_CPUS)
-
 TMP         := $(call select_from_repositories,lib/mk/bootstrap-hw.inc)
 BASE_HW_DIR := $(TMP:%/lib/mk/bootstrap-hw.inc=%)
 
@@ -38,5 +32,3 @@ vpath hw/%          $(BASE_HW_DIR)/src/lib
 vpath lib/base/%    $(BASE_HW_DIR)/src
 vpath lib/base/%    $(BASE_DIR)/src
 vpath lib/startup/% $(BASE_DIR)/src
-
-CC_CXX_WARN_STRICT_CONVERSION =

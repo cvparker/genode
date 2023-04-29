@@ -27,7 +27,7 @@
 /* Linux includes */
 #include <core_linux_syscalls.h>
 
-using namespace Genode;
+using namespace Core;
 
 
 /**
@@ -154,9 +154,9 @@ void Platform::wait_for_exit()
 }
 
 
-/****************************************************
- ** Support for Platform_env_base::Region_map_mmap **
- ****************************************************/
+/*********************************
+ ** Support for Region_map_mmap **
+ *********************************/
 
 size_t Region_map_mmap::_dataspace_size(Capability<Dataspace> ds_cap)
 {

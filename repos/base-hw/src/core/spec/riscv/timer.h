@@ -16,6 +16,8 @@
 
 /* Genode includes */
 #include <base/stdint.h>
+
+/* core includes */
 #include <kernel/types.h>
 
 namespace Board { class Timer; }
@@ -34,6 +36,8 @@ struct Board::Timer
 	Kernel::time_t stime() const;
 
 	Timer(unsigned);
+
+	void init();
 };
 
 #endif /* _SRC__CORE__SPEC__RISCV__TIMER_H_ */

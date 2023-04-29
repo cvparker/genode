@@ -39,6 +39,16 @@ namespace Kernel {
 }
 
 
+namespace Cpu_scheduler_test {
+
+	/**
+	 * Forward declaration of corresponding unit-test classes for friendship
+	 */
+	class Cpu_scheduler;
+	class Cpu_share;
+}
+
+
 class Kernel::Cpu_priority
 {
 	private:
@@ -75,6 +85,8 @@ class Kernel::Cpu_priority
 class Kernel::Cpu_share
 {
 	friend class Cpu_scheduler;
+	friend class Cpu_scheduler_test::Cpu_scheduler;
+	friend class Cpu_scheduler_test::Cpu_share;
 
 	private:
 
@@ -107,6 +119,8 @@ class Kernel::Cpu_share
 
 class Kernel::Cpu_scheduler
 {
+	friend class Cpu_scheduler_test::Cpu_scheduler;
+
 	private:
 
 		typedef Cpu_share    Share;
@@ -120,6 +134,7 @@ class Kernel::Cpu_scheduler
 		unsigned                _head_quota  = 0;
 		bool                    _head_claims = false;
 		bool                    _head_yields = false;
+		bool                    _head_was_removed = false;
 		unsigned const          _quota;
 		unsigned                _residual;
 		unsigned const          _fill;
@@ -218,7 +233,7 @@ class Kernel::Cpu_scheduler
 		 * Accessors
 		 */
 
-		Share &head() const;
+		Share &head();
 		unsigned head_quota() const {
 			return Genode::min(_head_quota, _residual); }
 		unsigned quota() const { return _quota; }

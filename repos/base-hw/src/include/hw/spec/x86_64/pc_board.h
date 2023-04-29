@@ -23,6 +23,8 @@ namespace Hw::Pc_board {
 	struct Boot_info;
 	struct Serial;
 	enum Dummies { UART_BASE, UART_CLOCK };
+
+	enum { NR_OF_CPUS = 32 };
 }
 
 
@@ -37,6 +39,7 @@ struct Hw::Pc_board::Boot_info
 	Acpi_rsdp      acpi_rsdp        { };
 	Framebuffer    framebuffer      { };
 	Genode::addr_t efi_system_table { 0 };
+	Genode::addr_t acpi_fadt        { 0 };
 
 	Boot_info() {}
 	Boot_info(Acpi_rsdp    const &acpi_rsdp,

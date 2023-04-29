@@ -12,7 +12,7 @@
  */
 
 #include <lx_emul.h>
-#include <linux/slab.h>
+#include <linux/version.h>
 
 #include <lx_emul/random.h>
 #include <lx_emul/alloc.h>
@@ -259,44 +259,8 @@ int firmware_request_nowarn(const struct firmware ** firmware,const char * name,
 }
 
 
-#include <linux/pci.h>
-
-int pcim_iomap_regions_request_all(struct pci_dev * pdev,int mask,const char * name)
-{
-	return 0;
-}
-
-
-#include <linux/pci.h>
-
-static unsigned long *_pci_iomap_table;
-
-void __iomem * const * pcim_iomap_table(struct pci_dev * pdev)
-{
-	unsigned i;
-
-	if (!_pci_iomap_table)
-		_pci_iomap_table = kzalloc(sizeof (unsigned long*) * 6, GFP_KERNEL);
-
-	if (!_pci_iomap_table)
-		return NULL;
-
-	for (i = 0; i < 6; i++) {
-		struct resource *r = &pdev->resource[i];
-		unsigned long phys_addr = r->start;
-		unsigned long size      = r->end - r->start;
-
-		if (!phys_addr || !size)
-			continue;
-
-		_pci_iomap_table[i] =
-			(unsigned long)lx_emul_io_mem_map(phys_addr, size);
-	}
-
-	return (void const *)_pci_iomap_table;
-}
-
-
+// XXX add kernel/task_work.c as well
+#ifdef CONFIG_X86
 #include <linux/task_work.h>
 
 int task_work_add(struct task_struct * task,struct callback_head * work,enum task_work_notify_mode notify)
@@ -304,6 +268,7 @@ int task_work_add(struct task_struct * task,struct callback_head * work,enum tas
 	printk("%s: task: %p work: %p notify: %u\n", __func__, task, work, notify);
 	return -1;
 }
+#endif
 
 
 #include <linux/slab.h>
@@ -326,7 +291,7 @@ void kfree_sensitive(const void *p)
 
 unsigned long get_zeroed_page(gfp_t gfp_mask)
 {
-    return (unsigned long)kzalloc(PAGE_SIZE, gfp_mask | __GFP_ZERO);
+	return (unsigned long)__alloc_pages(GFP_KERNEL, 0, 0, NULL)->virtual;
 }
 
 
@@ -345,12 +310,14 @@ pid_t __task_pid_nr_ns(struct task_struct * task,
 
 #include <linux/uaccess.h>
 
+#ifndef INLINE_COPY_FROM_USER
 unsigned long _copy_from_user(void * to, const void __user * from,
                               unsigned long n)
 {
 	memcpy(to, from, n);
 	return 0;
 }
+#endif
 
 
 #include <linux/uio.h>
@@ -425,7 +392,7 @@ size_t _copy_to_iter(const void * addr, size_t bytes, struct iov_iter * i)
 
 asmlinkage __visible void dump_stack(void)
 {
-	lx_backtrace();
+	lx_emul_backtrace();
 }
 
 
@@ -435,6 +402,17 @@ void __put_page(struct page * page)
 {
 	__free_pages(page, 0);
 }
+
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(6,1,0)
+#include <linux/mm.h>
+
+void __folio_put(struct folio * folio)
+{
+	__free_pages(&folio->page, 0);
+	kfree(folio);
+}
+#endif
 
 
 #include <linux/prandom.h>
@@ -451,6 +429,7 @@ u32 prandom_u32(void)
 }
 
 
+#include <linux/version.h>
 #include <linux/gfp.h>
 
 void *page_frag_alloc_align(struct page_frag_cache *nc,
@@ -458,7 +437,11 @@ void *page_frag_alloc_align(struct page_frag_cache *nc,
                             unsigned int align_mask)
 {
 	unsigned int const order = fragsz / PAGE_SIZE;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5,12,0)
 	struct page *page = __alloc_pages(gfp_mask, order, 0, NULL);
+#else
+	struct page *page = __alloc_pages(gfp_mask, order, 0);
+#endif
 
 	if (!page)
 		return NULL;
@@ -479,7 +462,7 @@ void page_frag_free(void * addr)
 	struct page *page = lx_emul_virt_to_pages(addr, 1ul);
 	if (!page) {
 		printk("BUG %s: page for addr: %p not found\n", __func__, addr);
-		lx_backtrace();
+		lx_emul_backtrace();
 	}
 
 	__free_pages(page, 0ul);
@@ -501,7 +484,7 @@ void misc_deregister(struct miscdevice *misc)
 /* rfkill support */
 
 #include <linux/rfkill.h>
-#include <net/rfkill/rfkill.h>
+#include <../net/rfkill/rfkill.h>
 
 int __init rfkill_handler_init(void)
 {
@@ -580,157 +563,31 @@ void kvfree_call_rcu(struct rcu_head * head,rcu_callback_t func)
 }
 
 
-#include <linux/pci.h>
-#include <uapi/linux/pci_regs.h>
-
-int pci_write_config_byte(const struct pci_dev * dev,int where,u8 val)
-{
-	enum { PCI_CFG_RETRY_TIMEOUT = 0x41 };
-
-	switch (where) {
-		/*
-		 * iwlwifi: "We disable the RETRY_TIMEOUT register (0x41) to keep
-		 *           PCI Tx retries from interfering with C3 CPU state"
-		 */
-		case PCI_CFG_RETRY_TIMEOUT:
-			return 0;
-
-	/*
-	 * rtlwifi: "leave D3 mode"
-	 */
-	case 0x44:
-	case PCI_COMMAND:
-		return 0;
-	/*
-	 * rtlwifi: needed for enabling DMA 64bit support
-	 */
-	case 0x719:
-		return 0;
-	/*
-	 * rtlwifi: below are registers related to ASPM and PCI link
-	 *          control that we do not handle (yet).
-	 */
-	case 0x81:
-	case 0x98:
-		return 0;
-	};
-
-	return -1;
-}
-
-
-int pci_write_config_dword(const struct pci_dev * dev,int where,u32 val)
-{
-	switch (where) {
-	/*
-	 * ath9k: "Disable the bETRY_TIMEOUT register (0x41) to keep
-	 *        PCI Tx retries from interfering with C3 CPU state."
-	 */
-	case 0x40:
-		return 0;
-	}
-
-	return -1;
-}
-
-
-int pci_read_config_dword(const struct pci_dev * dev,int where,u32 * val)
-{
-	switch (where) {
-	/*
-	 * ath9k: "Disable the bETRY_TIMEOUT register (0x41) to keep
-	 *        PCI Tx retries from interfering with C3 CPU state."
-	 */
-	case 0x40:
-		return 0;
-	}
-
-	return -1;
-}
-
-
-int pci_read_config_word(const struct pci_dev * dev,int where,u16 * val)
-{
-	switch (where) {
-		case PCI_COMMAND:
-			*val = PCI_COMMAND_MASTER | PCI_COMMAND_MEMORY | PCI_COMMAND_IO;
-			return 0;
-	/*
-	 * rtlwifi: read but ignored
-	 */
-	case PCI_INTERRUPT_LINE:
-		*val = 0;
-		return 0;
-	};
-
-	return -1;
-}
-
-
-int pci_read_config_byte(const struct pci_dev * dev,int where,u8 * val)
-{
-	switch (where) {
-	/*
-	 * rtlwifi: apparently needed for device distinction
-	 */
-	case PCI_REVISION_ID:
-		*val = dev->revision;
-		return 0;
-	/*
-	 * rtlwifi: needed for enabling DMA 64bit support
-	 */
-	case 0x719:
-		*val = 0;
-		return 0;
-	/*
-	 * rtlwifi: below are registers related to ASPM and PCI link
-	 *          control that we do not handle (yet).
-	 */
-	case 0x80:
-	case 0x81:
-	case 0x98:
-		*val = 0;
-		return 0;
-	}
-
-	return -1;
-}
-
-
-void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long maxlen)
-{
-	struct resource *r;
-	unsigned long phys_addr;
-	unsigned long size;
-
-	if (!dev || bar > 5) {
-		printk("%s:%d: invalid request for dev: %p bar: %d\n",
-			   __func__, __LINE__, dev, bar);
-		return NULL;
-	}
-
-	printk("pci_iomap: request for dev: %s bar: %d\n", dev_name(&dev->dev), bar);
-
-	r = &dev->resource[bar];
-
-	phys_addr = r->start;
-	size      = r->end - r->start;
-
-	if (!phys_addr || !size)
-		return NULL;
-
-	return lx_emul_io_mem_map(phys_addr, size);
-}
-
-
-void __iomem *pcim_iomap(struct pci_dev *pdev, int bar, unsigned long maxlen)
-{
-	return pci_iomap(pdev, bar, maxlen);
-}
-
+#include <linux/dma-mapping.h>
 
 void *dmam_alloc_attrs(struct device *dev, size_t size, dma_addr_t *dma_handle,
                        gfp_t gfp, unsigned long attrs)
 {
 	return dma_alloc_attrs(dev, size, dma_handle, gfp, attrs);
 }
+
+
+int kmem_cache_alloc_bulk(struct kmem_cache * s,gfp_t flags,size_t nr,void ** p)
+{
+	size_t i;
+	for (i = 0; i < nr; i++)
+		p[i] = kmem_cache_alloc(s, flags);
+
+	return nr;
+}
+
+
+#include <../mm/slab.h>
+
+void * kmem_cache_alloc_lru(struct kmem_cache * cachep,struct list_lru * lru,gfp_t flags)
+{
+	return kmalloc(cachep->size, flags);
+}
+
+
+unsigned long __FIXADDR_TOP = 0xfffff000;

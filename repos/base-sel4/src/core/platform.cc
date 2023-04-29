@@ -14,7 +14,6 @@
 /* Genode includes */
 #include <base/sleep.h>
 #include <base/thread.h>
-#include <base/log.h>
 #include <trace/source_registry.h>
 #include <util/xml_generator.h>
 
@@ -34,7 +33,7 @@
 /* seL4 includes */
 #include <sel4/benchmark_utilisation_types.h>
 
-using namespace Genode;
+using namespace Core;
 
 static bool const verbose_boot_info = true;
 
@@ -61,7 +60,7 @@ extern unsigned _prog_img_beg, _prog_img_end;
 bool Mapped_mem_allocator::_map_local(addr_t virt_addr, addr_t phys_addr, size_t size)
 {
 	if (platform_in_construction)
-		Genode::warning("need physical memory, but Platform object not constructed yet");
+		warning("need physical memory, but Platform object not constructed yet");
 
 	size_t const num_pages = size / get_page_size();
 
@@ -344,11 +343,9 @@ void Platform::_init_rom_modules()
 		 * Register ROM module, the base address refers to location of the
 		 * ROM module within the phys CNode address space.
 		 */
-		Rom_module * rom_module = new (rom_module_slab)
-			Rom_module(dst_frame << get_page_size_log2(), header->size,
-			           (const char*)header->name);
-
-		_rom_fs.insert(rom_module);
+		new (rom_module_slab)
+			Rom_module(_rom_fs, (const char*)header->name,
+			           dst_frame << get_page_size_log2(), header->size);
 	};
 
 	auto gen_platform_info = [&] (Xml_generator &xml)
@@ -447,7 +444,7 @@ void Platform::_init_rom_modules()
 
 					bool valid() const {
 						const char sign[] = "RSD PTR ";
-						return signature == *(Genode::uint64_t *)sign;
+						return signature == *(uint64_t *)sign;
 					}
 				} __attribute__((packed));
 
@@ -508,8 +505,8 @@ void Platform::_init_rom_modules()
 				memset(core_local_ptr, 0, size);
 				content_fn((char *)core_local_ptr, size);
 
-				_rom_fs.insert(
-					new (core_mem_alloc()) Rom_module(phys.addr, size, rom_name));
+				new (core_mem_alloc())
+					Rom_module(_rom_fs, rom_name, phys.addr, size);
 
 				phys.keep = true;
 			},
@@ -556,7 +553,7 @@ Platform::Platform()
 {
 	platform_in_construction = this;
 
-	/* start benchmarking for CPU utilization in Genode TRACE service */
+	/* start benchmarking for CPU utilization in TRACE service */
 	seL4_BenchmarkResetLog();
 
 	/* create notification object for Genode::Lock used by this first thread */
@@ -618,7 +615,7 @@ Platform::Platform()
 			 */
 			Info trace_source_info() const override
 			{
-				Genode::Thread &myself = *Genode::Thread::myself();
+				Thread &myself = *Thread::myself();
 				addr_t const ipc_buffer = reinterpret_cast<addr_t>(myself.utcb());
 				seL4_IPCBuffer * ipcbuffer = reinterpret_cast<seL4_IPCBuffer *>(ipc_buffer);
 				uint64_t const * buf = reinterpret_cast<uint64_t *>(ipcbuffer->msg);

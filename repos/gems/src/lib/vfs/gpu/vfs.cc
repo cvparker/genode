@@ -36,11 +36,11 @@ struct Vfs_gpu::File_system : Single_file_system
 	struct Gpu_vfs_handle : Single_vfs_handle
 	{
 		bool             _complete { false };
-		Genode::Env     &_env;
-		Gpu::Connection  _gpu_session { _env };
+		Vfs::Env        &_env;
+		Gpu::Connection  _gpu_session { _env.env() };
 
 		Genode::Io_signal_handler<Gpu_vfs_handle> _completion_sigh {
-			_env.ep(), *this, &Gpu_vfs_handle::_handle_completion };
+			_env.env().ep(), *this, &Gpu_vfs_handle::_handle_completion };
 
 		using Id_space = Genode::Id_space<Gpu_vfs_handle>;
 		Id_space::Element const _elem;
@@ -48,33 +48,33 @@ struct Vfs_gpu::File_system : Single_file_system
 		void _handle_completion()
 		{
 			_complete = true;
-			io_progress_response();
+			_env.user().wakeup_vfs_user();
 		}
 
-		Gpu_vfs_handle(Genode::Env &env,
+		Gpu_vfs_handle(Vfs::Env &env,
 		               Directory_service &ds,
 		               File_io_service   &fs,
 		               Genode::Allocator &alloc,
 		               Id_space &space)
-		: Single_vfs_handle(ds, fs, alloc, 0),
-		  _env(env), _elem(*this, space)
+		:
+			Single_vfs_handle(ds, fs, alloc, 0),
+			_env(env), _elem(*this, space)
 		{
 			_gpu_session.completion_sigh(_completion_sigh);
 		}
 
-		Read_result read(char *dst, file_size /* count */,
-		                 file_size &out_count) override
+		Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 		{
 			if (!_complete) return READ_QUEUED;
 
-			_complete = false;
-			dst[0]    = 1;
-			out_count = 1;
+			_complete    = false;
+			dst.start[0] = 1;
+			out_count    = 1;
 
 			return READ_OK;
 		}
 
-		Write_result write(char const *, file_size, file_size &) override
+		Write_result write(Const_byte_range_ptr const &, size_t &) override
 		{
 			return WRITE_ERR_IO;
 		}
@@ -110,7 +110,7 @@ struct Vfs_gpu::File_system : Single_file_system
 
 		try {
 			Gpu_vfs_handle *handle  = new (alloc)
-				Gpu_vfs_handle(_env.env(), *this, *this, alloc, _handle_space);
+				Gpu_vfs_handle(_env, *this, *this, alloc, _handle_space);
 
 			_last_id = handle->id();
 			*out_handle = handle;

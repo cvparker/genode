@@ -450,7 +450,7 @@ struct Vfs::Oss_file_system::Audio
 			return false;
 		}
 
-		bool read(char *buf, file_size buf_size, file_size &out_size)
+		bool read(Byte_range_ptr const &dst, size_t &out_size)
 		{
 			out_size = 0;
 
@@ -461,7 +461,7 @@ struct Vfs::Oss_file_system::Audio
 				return true;
 			}
 
-			buf_size = min(buf_size, _info.ifrag_bytes);
+			size_t const buf_size = min(dst.num_bytes, _info.ifrag_bytes);
 
 			unsigned samples_to_read = buf_size / CHANNELS / sizeof(int16_t);
 
@@ -497,7 +497,7 @@ struct Vfs::Oss_file_system::Audio
 
 					for (unsigned c = 0; c < CHANNELS; c++) {
 						unsigned const buf_index = out_size / sizeof(int16_t);
-						((int16_t*)buf)[buf_index] = p->content()[_read_sample_offset] * 32768;
+						((int16_t*)dst.start)[buf_index] = p->content()[_read_sample_offset] * 32768;
 						out_size += sizeof(int16_t);
 					}
 
@@ -517,7 +517,11 @@ struct Vfs::Oss_file_system::Audio
 			return true;
 		}
 
+<<<<<<< HEAD
 		Write_result write(char const *buf, file_size buf_size, file_size &out_size)
+=======
+		Write_result write(Const_byte_range_ptr const &src, size_t &out_size)
+>>>>>>> origin/master
 		{
 			using namespace Genode;
 
@@ -527,6 +531,8 @@ struct Vfs::Oss_file_system::Audio
 				return Write_result::WRITE_ERR_WOULD_BLOCK;
 
 			bool block_write = false;
+
+			size_t buf_size = src.num_bytes;
 
 			if (buf_size > _info.ofrag_bytes) {
 				buf_size = _info.ofrag_bytes;
@@ -584,7 +590,7 @@ struct Vfs::Oss_file_system::Audio
 
 					for (unsigned c = 0; c < CHANNELS; c++) {
 						unsigned const buf_index = out_size / sizeof(int16_t);
-						int16_t src_sample = ((int16_t const*)buf)[buf_index];
+						int16_t src_sample = ((int16_t const*)src.start)[buf_index];
 						dest[c][_write_sample_offset] = ((float)src_sample) / 32768.0f;
 						out_size += sizeof(int16_t);
 					}
@@ -629,6 +635,7 @@ class Vfs::Oss_file_system::Data_file_system : public Single_file_system
 		Data_file_system &operator = (Data_file_system const &);
 
 		Genode::Entrypoint &_ep;
+		Vfs::Env::User     &_vfs_user;
 		Audio              &_audio;
 
 		struct Oss_vfs_handle : public Single_vfs_handle
@@ -647,17 +654,17 @@ class Vfs::Oss_file_system::Data_file_system : public Single_file_system
 				_audio { audio }
 			{ }
 
-			Read_result read(char *buf, file_size buf_size, file_size &out_count) override
+			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
-				if (!buf)
+				if (!dst.start)
 					return READ_ERR_INVALID;
 
-				if (buf_size == 0) {
+				if (dst.num_bytes == 0) {
 					out_count = 0;
 					return READ_OK;
 				}
 
-				bool success = _audio.read(buf, buf_size, out_count);
+				bool success = _audio.read(dst, out_count);
 
 				if (success) {
 					if (out_count == 0) {
@@ -669,10 +676,13 @@ class Vfs::Oss_file_system::Data_file_system : public Single_file_system
 				return READ_ERR_INVALID;
 			}
 
-			Write_result write(char const *buf, file_size buf_size,
-			                   file_size &out_count) override
+			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
+<<<<<<< HEAD
 				Write_result const result = _audio.write(buf, buf_size, out_count);
+=======
+				Write_result const result = _audio.write(src, out_count);
+>>>>>>> origin/master
 
 				if (result == Write_result::WRITE_ERR_WOULD_BLOCK) {
 					blocked = true;
@@ -705,41 +715,29 @@ class Vfs::Oss_file_system::Data_file_system : public Single_file_system
 
 		void _handle_audio_out_progress()
 		{
-			if (_audio.handle_out_progress()) {
-				/* at least one stream packet is available */
-				_handle_registry.for_each([this] (Registered_handle &handle) {
-					if (handle.blocked) {
-						handle.blocked = false;
-						handle.io_progress_response();
-					}
-				});
-			}
+			if (_audio.handle_out_progress())
+				_vfs_user.wakeup_vfs_user();
 		}
 
 		void _handle_audio_in_progress()
 		{
-			if (_audio.handle_in_progress()) {
-				/* at least one stream packet is available */
-				_handle_registry.for_each([this] (Registered_handle &handle) {
-					if (handle.blocked) {
-						handle.blocked = false;
-						handle.io_progress_response();
-					}
-				});
-			}
+			if (_audio.handle_in_progress())
+				_vfs_user.wakeup_vfs_user();
 		}
 
 	public:
 
 		Data_file_system(Genode::Entrypoint &ep,
+		                 Vfs::Env::User     &vfs_user,
 		                 Audio              &audio,
 		                 Name         const &name)
 		:
 			Single_file_system { Node_type::CONTINUOUS_FILE, name.string(),
 			                     Node_rwx::ro(), Genode::Xml_node("<data/>") },
 
-			_ep    { ep },
-			_audio { audio }
+			_ep       { ep },
+			_vfs_user { vfs_user },
+			_audio    { audio }
 		{
 			_audio.out_progress_sigh(_audio_out_progress_sigh);
 			_audio.in_progress_sigh(_audio_in_progress_sigh);
@@ -1008,7 +1006,7 @@ struct Vfs::Oss_file_system::Local_factory : File_system_factory
 		_label   { config.attribute_value("label", Label("")) },
 		_name    { name(config) },
 		_env     { env },
-		_data_fs { _env.env().ep(), _audio, name(config) }
+		_data_fs { _env.env().ep(), env.user(), _audio, name(config) }
 	{ }
 
 	Vfs::File_system *create(Vfs::Env&, Xml_node node) override

@@ -16,10 +16,14 @@
 
 #include <base/thread.h>
 
-namespace Genode { class Irq_object; }
+/* core includes */
+#include <types.h>
 
-class Genode::Irq_object : public Thread {
+namespace Core { class Irq_object; }
 
+
+class Core::Irq_object : public Thread
+{
 	private:
 
 		Signal_context_capability _sig_cap { };

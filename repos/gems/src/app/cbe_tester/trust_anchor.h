@@ -51,7 +51,6 @@ class Trust_anchor
 
 		Vfs::Env                  &_vfs_env;
 		char                       _read_buf[64];
-		Vfs_io_response_handler    _handler;
 		Genode::String<128> const  _path;
 		Genode::String<128> const  _decrypt_path      { _path, "/decrypt" };
 		Vfs::Vfs_handle           &_decrypt_file      { vfs_open_rw(_vfs_env, { _decrypt_path }) };
@@ -75,7 +74,8 @@ class Trust_anchor
 		void _execute_write_operation(Vfs::Vfs_handle           &file,
 		                              Genode::String<128> const &file_path,
 		                              char                const *write_buf,
-		                              bool                      &progress);
+		                              bool                      &progress,
+		                              bool                       result_via_read);
 
 		void _execute_read_operation(Vfs::Vfs_handle           &file,
 		                             Genode::String<128> const &file_path,
@@ -85,8 +85,7 @@ class Trust_anchor
 	public:
 
 		Trust_anchor(Vfs::Env                          &vfs_env,
-		             Genode::Xml_node            const &xml_node,
-		             Genode::Signal_context_capability  sigh);
+		             Genode::Xml_node            const &xml_node);
 
 		bool request_acceptable() const;
 

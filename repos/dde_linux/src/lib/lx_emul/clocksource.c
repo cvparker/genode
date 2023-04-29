@@ -17,6 +17,9 @@
 #include <linux/sched_clock.h>
 #include <linux/smp.h>
 #include <linux/of_clk.h>
+#include <linux/tick.h>
+#include <linux/interrupt.h>
+#include <linux/version.h>
 #include <lx_emul/debug.h>
 #include <lx_emul/time.h>
 #include <lx_emul/init.h>
@@ -106,6 +109,28 @@ void lx_emul_time_init()
 void lx_emul_time_handle(void)
 {
 	dde_clock_event_device->event_handler(dde_clock_event_device);
+}
+
+
+extern ktime_t tick_next_period;
+void lx_emul_time_update_jiffies(void)
+{
+	/* check if jiffies need an update */
+	if (ktime_before(ktime_get(), tick_next_period))
+		return;
+
+	/* tick_nohz_idle_stop_tick breaks with error if softirq is pending */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,18,0)
+	if (local_softirq_pending() & SOFTIRQ_STOP_IDLE_MASK)
+#else
+	if (local_softirq_pending() & ~SOFTIRQ_HOTPLUG_SAFE_MASK)
+#endif
+		return;
+
+	tick_nohz_idle_enter();
+	tick_nohz_idle_stop_tick();
+	tick_nohz_idle_restart_tick();
+	tick_nohz_idle_exit();
 }
 
 

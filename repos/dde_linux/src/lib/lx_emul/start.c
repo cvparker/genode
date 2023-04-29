@@ -29,6 +29,8 @@
 #include <linux/of.h>
 #include <linux/of_clk.h>
 #include <linux/of_fdt.h>
+#include <linux/version.h>
+#include <net/net_namespace.h>
 
 /* definitions in drivers/base/base.h */
 extern int devices_init(void);
@@ -69,21 +71,42 @@ static int kernel_init(void * args)
 }
 
 
-static void timer_loop(void)
+static int kernel_idle(void * args)
 {
-	for (;;) {
-		tick_nohz_idle_enter();
+	struct task_struct *tsk = current;
+	set_task_comm(tsk, "idle");
 
-		if (!lx_emul_task_another_runnable())
-			tick_nohz_idle_stop_tick();
+	/* set this current task to be the idle task */
+	lx_emul_task_set_idle();
+
+	/*
+	 * Idle task always gets run in the end of each schedule
+	 * and again at the beginning of each schedule
+	 */
+	for (;;) {
+		lx_emul_task_schedule(true);
+
+		tick_nohz_idle_enter();
+		tick_nohz_idle_stop_tick();
 
 		lx_emul_task_schedule(true);
-		lx_emul_time_handle();
 
-		/* check restarting ticking */
 		tick_nohz_idle_restart_tick();
-
 		tick_nohz_idle_exit();
+	}
+
+	return 0;
+}
+
+
+static void timer_loop(void)
+{
+	/* set timer interrupt task to highest priority */
+	lx_emul_task_priority(current, 0);
+
+	for (;;) {
+		lx_emul_task_schedule(true);
+		lx_emul_time_handle();
 	}
 }
 
@@ -119,12 +142,16 @@ int lx_emul_init_task_function(void * dtb)
 	hrtimers_init();
 	softirq_init();
 	timekeeping_init();
-
 	time_init();
 
 	sched_clock_init();
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
+	net_ns_init();
+#endif
+
 	kernel_thread(kernel_init, NULL, CLONE_FS);
+	kernel_thread(kernel_idle, NULL, CLONE_FS);
 	pid = kernel_thread(kthreadd, NULL, CLONE_FS | CLONE_FILES);
 	kthreadd_task = find_task_by_pid_ns(pid, NULL);;
 

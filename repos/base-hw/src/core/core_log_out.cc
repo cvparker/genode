@@ -13,18 +13,18 @@
  */
 
 /* Genode includes */
-#include <base/log.h>
 #include <base/thread.h>
 
 /* base-internal includes */
 #include <base/internal/output.h>
 #include <base/internal/raw_write_string.h>
 
+/* core includes */
 #include <core_log.h>
 #include <kernel/cpu.h>
 #include <kernel/log.h>
 
-using namespace Genode;
+using namespace Core;
 
 
 void Core_log::out(char const c) { Kernel::log(c); }
@@ -47,7 +47,11 @@ static inline bool running_in_kernel()
 {
 	addr_t const stack_base = reinterpret_cast<addr_t>(&kernel_stack);
 	static constexpr size_t stack_size =
+<<<<<<< HEAD
 		NR_OF_CPUS * Kernel::Cpu::KERNEL_STACK_SIZE;
+=======
+		Board::NR_OF_CPUS * Kernel::Cpu::KERNEL_STACK_SIZE;
+>>>>>>> origin/master
 
 	/* check stack variable against kernel stack area */
 	return ((addr_t)&stack_base) >= stack_base &&

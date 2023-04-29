@@ -30,26 +30,10 @@ void __icmp_send(struct sk_buff * skb_in,int type,int code,__be32 info,const str
 
 #include <linux/random.h>
 
-void get_random_bytes(void * buf,int nbytes)
-{
-	lx_emul_random_gen_bytes(buf, nbytes);
-}
-
-
-#include <linux/random.h>
-
 int wait_for_random_bytes(void)
 {
 	lx_emul_trace(__func__);
 	return 0;
-}
-
-
-#include <linux/random.h>
-
-u32 get_random_u32(void)
-{
-	return lx_emul_random_gen_u32();
 }
 
 
@@ -61,20 +45,17 @@ u32 prandom_u32(void)
 }
 
 
-#include <linux/random.h>
-
-int __must_check get_random_bytes_arch(void * buf, int nbytes)
+u32 __get_random_u32_below(u32 ceil)
 {
-	lx_emul_random_gen_bytes(buf, nbytes);
-	return nbytes;
+	return lx_emul_random_gen_u32();
 }
 
 
-#include <linux/slab.h>
-
-void * kmalloc_order(size_t size,gfp_t flags,unsigned int order)
+u8 get_random_u8(void)
 {
-	return kmalloc(size, flags);
+	u8 ret;
+	lx_emul_random_gen_bytes(&ret, sizeof(ret));
+	return ret;
 }
 
 
@@ -243,14 +224,6 @@ __be16 ip_tunnel_parse_protocol(const struct sk_buff *skb)
 }
 
 
-#include <linux/random.h>
-
-bool rng_is_initialized(void)
-{
-	return true;
-}
-
-
 #include <linux/inetdevice.h>
 
 __be32 inet_confirm_addr(struct net * net,struct in_device * in_dev,__be32 dst,__be32 local,int scope)
@@ -312,7 +285,8 @@ gro_result_t napi_gro_receive(struct napi_struct * napi,struct sk_buff * skb)
 
 #include <linux/netdevice.h>
 
-void netif_napi_add(struct net_device * dev,struct napi_struct * napi,int (* poll)(struct napi_struct *,int),int weight)
+void netif_napi_add_weight(struct net_device *dev, struct napi_struct *napi,
+                           int (*poll)(struct napi_struct *, int), int weight)
 {
 	napi->dev = dev;
 	napi->poll = poll;

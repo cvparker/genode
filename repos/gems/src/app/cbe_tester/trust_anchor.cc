@@ -36,10 +36,12 @@ void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
 
 	case Job_state::WRITE_IN_PROGRESS:
 	{
-		file_size nr_of_written_bytes { 0 };
-		Write_result const result =
-			file.fs().write(&file, write_buf + _job.fl_offset,
-			                _job.fl_size, nr_of_written_bytes);
+		size_t written_bytes { 0 };
+
+		Const_byte_range_ptr const src(write_buf + _job.fl_offset, _job.fl_size);
+
+		Write_result const result = file.fs().write(&file, src, written_bytes);
+
 		switch (result) {
 
 		case Write_result::WRITE_ERR_WOULD_BLOCK:
@@ -47,8 +49,8 @@ void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
 
 		case Write_result::WRITE_OK:
 
-			_job.fl_offset += nr_of_written_bytes;
-			_job.fl_size -= nr_of_written_bytes;
+			_job.fl_offset += written_bytes;
+			_job.fl_size   -= written_bytes;
 
 			if (_job.fl_size > 0) {
 
@@ -84,11 +86,11 @@ void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
 
 	case Job_state::READ_IN_PROGRESS:
 	{
-		file_size nr_of_read_bytes { 0 };
-		Read_result const result {
-			file.fs().complete_read(
-				&file, read_buf + _job.fl_offset, _job.fl_size,
-				nr_of_read_bytes) };
+		size_t read_bytes = 0;
+
+		Byte_range_ptr const dst(read_buf + _job.fl_offset, _job.fl_size);
+
+		Read_result const result = file.fs().complete_read( &file, dst, read_bytes);
 
 		switch (result) {
 		case Read_result::READ_QUEUED:
@@ -98,8 +100,8 @@ void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
 
 		case Read_result::READ_OK:
 
-			_job.fl_offset += nr_of_read_bytes;
-			_job.fl_size -= nr_of_read_bytes;
+			_job.fl_offset += read_bytes;
+			_job.fl_size   -= read_bytes;
 			_job.request.success(true);
 
 			if (_job.fl_size > 0) {
@@ -130,7 +132,8 @@ void Trust_anchor::_execute_write_read_operation(Vfs_handle        &file,
 void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
                                             String<128> const &file_path,
                                             char        const *write_buf,
-                                            bool              &progress)
+                                            bool              &progress,
+                                            bool               result_via_read)
 {
 	switch (_job.state) {
 	case Job_state::WRITE_PENDING:
@@ -142,11 +145,11 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 
 	case Job_state::WRITE_IN_PROGRESS:
 	{
-		file_size nr_of_written_bytes { 0 };
-		Write_result const result =
-			file.fs().write(
-				&file, write_buf + _job.fl_offset,
-				_job.fl_size, nr_of_written_bytes);
+		size_t written_bytes = 0;
+
+		Const_byte_range_ptr const src(write_buf + _job.fl_offset, _job.fl_size);
+
+		Write_result const result = file.fs().write( &file, src, written_bytes);
 
 		switch (result) {
 
@@ -155,8 +158,8 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 
 		case Write_result::WRITE_OK:
 
-			_job.fl_offset += nr_of_written_bytes;
-			_job.fl_size -= nr_of_written_bytes;
+			_job.fl_offset += written_bytes;
+			_job.fl_size   -= written_bytes;
 
 			if (_job.fl_size > 0) {
 
@@ -166,7 +169,12 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 			}
 			_job.state = Job_state::READ_PENDING;
 			_job.fl_offset = 0;
-			_job.fl_size = 0;
+
+			if (result_via_read)
+				_job.fl_size = sizeof(_read_buf);
+			else
+				_job.fl_size = 0;
+
 			progress = true;
 			return;
 
@@ -192,11 +200,11 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 
 	case Job_state::READ_IN_PROGRESS:
 	{
-		file_size nr_of_read_bytes { 0 };
-		Read_result const result {
-			file.fs().complete_read(
-				&file, _read_buf + _job.fl_offset, _job.fl_size,
-				nr_of_read_bytes) };
+		size_t read_bytes = 0;
+
+		Byte_range_ptr const dst(_read_buf + _job.fl_offset, _job.fl_size);
+
+		Read_result const result = file.fs().complete_read(&file, dst, read_bytes);
 
 		switch (result) {
 		case Read_result::READ_QUEUED:
@@ -206,9 +214,8 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 
 		case Read_result::READ_OK:
 
-			_job.fl_offset += nr_of_read_bytes;
-			_job.fl_size -= nr_of_read_bytes;
-			_job.request.success(true);
+			_job.fl_offset += read_bytes;
+			_job.fl_size   -= read_bytes;
 
 			if (_job.fl_size > 0) {
 
@@ -216,6 +223,11 @@ void Trust_anchor::_execute_write_operation(Vfs_handle        &file,
 				progress = true;
 				return;
 			}
+			if (result_via_read) {
+				_job.request.success(!strcmp(_read_buf, "ok", 3));
+			} else
+				_job.request.success(true);
+
 			_job.state = Job_state::COMPLETE;
 			progress = true;
 			return;
@@ -254,11 +266,11 @@ void Trust_anchor::_execute_read_operation(Vfs_handle        &file,
 
 	case Job_state::READ_IN_PROGRESS:
 	{
-		file_size nr_of_read_bytes { 0 };
-		Read_result const result {
-			file.fs().complete_read(
-				&file, read_buf + _job.fl_offset, _job.fl_size,
-				nr_of_read_bytes) };
+		size_t read_bytes = 0;
+
+		Byte_range_ptr const dst(read_buf + _job.fl_offset, _job.fl_size);
+
+		Read_result const result = file.fs().complete_read(&file, dst, read_bytes);
 
 		switch (result) {
 		case Read_result::READ_QUEUED:
@@ -268,8 +280,8 @@ void Trust_anchor::_execute_read_operation(Vfs_handle        &file,
 
 		case Read_result::READ_OK:
 
-			_job.fl_offset += nr_of_read_bytes;
-			_job.fl_size -= nr_of_read_bytes;
+			_job.fl_offset += read_bytes;
+			_job.fl_size   -= read_bytes;
 			_job.request.success(true);
 
 			if (_job.fl_size > 0) {
@@ -297,20 +309,12 @@ void Trust_anchor::_execute_read_operation(Vfs_handle        &file,
 }
 
 
-Trust_anchor::Trust_anchor(Vfs::Env                  &vfs_env,
-                           Xml_node            const &xml_node,
-                           Signal_context_capability  sigh)
+Trust_anchor::Trust_anchor(Vfs::Env       &vfs_env,
+                           Xml_node const &xml_node)
 :
 	_vfs_env { vfs_env },
-	_handler { sigh },
 	_path    { xml_node.attribute_value("path", String<128>()) }
-{
-	_initialize_file.handler(&_handler);
-	_hashsum_file.handler(&_handler);
-	_generate_key_file.handler(&_handler);
-	_encrypt_file.handler(&_handler);
-	_decrypt_file.handler(&_handler);
-}
+{ }
 
 
 bool Trust_anchor::request_acceptable() const
@@ -446,7 +450,7 @@ void Trust_anchor::execute(bool &progress)
 
 		_execute_write_operation(
 			_initialize_file, _initialize_path,
-			_job.passphrase.string(), progress);
+			_job.passphrase.string(), progress, true);
 
 		break;
 
@@ -454,7 +458,7 @@ void Trust_anchor::execute(bool &progress)
 
 		_execute_write_operation(
 			_hashsum_file, _hashsum_path,
-			_job.hash.values, progress);
+			_job.hash.values, progress, false);
 
 		break;
 

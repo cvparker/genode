@@ -31,9 +31,6 @@ struct Main
 	Env                  & env;
 	Heap                   heap            { env.ram(), env.rm()       };
 	Attached_rom_dataspace platform_info   { env, "platform_info"      };
-	Attached_rom_dataspace sys_rom         { env, "system"             };
-	Signal_handler<Main>   sys_rom_handler { env.ep(), *this,
-	                                         &Main::sys_rom_update     };
 	Expanding_reporter     pci_reporter    { env, "devices", "devices", { 32*1024 } };
 	Registry<Bridge>       bridge_registry {}; /* contains host bridges */
 
@@ -54,8 +51,7 @@ struct Main
 
 	void parse_irq_override_rules(Xml_node & xml);
 	void parse_pci_config_spaces(Xml_node & xml, Xml_generator & generator);
-	void parse_acpi_device_info(Xml_generator & generator);
-	void sys_rom_update();
+	void parse_acpi_device_info(Xml_node const &xml, Xml_generator & generator);
 
 	template <typename FN>
 	void for_bridge(Pci::bus_t bus, FN const & fn)
@@ -269,13 +265,28 @@ void Main::parse_pci_bus(bus_t           bus,
 }
 
 
+static void parse_acpica_info(Xml_node const &xml, Xml_generator &gen)
+{
+	gen.node("device", [&] {
+		gen.attribute("name", "acpi");
+		gen.attribute("type", "acpi");
+
+		xml.with_optional_sub_node("sci_int", [&] (Xml_node xml) {
+			gen.node("irq", [&] {
+				gen.attribute("number", xml.attribute_value("irq", 0xff));
+			});
+		});
+	});
+}
+
+
 /*
  * By now, we do not have the necessary information about non-PCI devices
  * available from the ACPI tables, therefore we hard-code typical devices
  * we assume to be found in this function. In the future, this function
  * shall interpret ACPI tables information.
  */
-void Main::parse_acpi_device_info(Xml_generator & gen)
+void Main::parse_acpi_device_info(Xml_node const &xml, Xml_generator & gen)
 {
 	/*
 	 * PS/2 device
@@ -310,6 +321,12 @@ void Main::parse_acpi_device_info(Xml_generator & gen)
 			gen.attribute("size", 4U);
 		});
 	});
+
+	/*
+	 * ACPI device (if applicable)
+	 */
+	if (xml.has_sub_node("sci_int"))
+		parse_acpica_info(xml, gen);
 }
 
 
@@ -357,12 +374,29 @@ void Main::parse_pci_config_spaces(Xml_node & xml, Xml_generator & generator)
 }
 
 
-void Main::sys_rom_update()
+Main::Main(Env & env) : env(env)
 {
+	platform_info.xml().with_optional_sub_node("kernel", [&] (Xml_node xml)
+	{
+		apic_capable = xml.attribute_value("acpi", false);
+		msi_capable  = xml.attribute_value("msi",  false);
+	});
+
+	Attached_rom_dataspace sys_rom(env, "system");
 	sys_rom.update();
 
-	if (!sys_rom.valid())
-		return;
+	/*
+	 * Wait until the system ROM is available
+	 */
+	if (!sys_rom.valid()) {
+		struct Io_dummy { void fn() {}; } io_dummy;
+		Io_signal_handler<Io_dummy> handler(env.ep(), io_dummy, &Io_dummy::fn);
+		sys_rom.sigh(handler);
+		while (!sys_rom.valid()) {
+			env.ep().wait_and_dispatch_one_io_signal();
+			sys_rom.update();
+		}
+	}
 
 	Xml_node xml = sys_rom.xml();
 
@@ -383,22 +417,9 @@ void Main::sys_rom_update()
 
 	pci_reporter.generate([&] (Xml_generator & generator)
 	{
-		parse_acpi_device_info(generator);
+		parse_acpi_device_info(xml, generator);
 		parse_pci_config_spaces(xml, generator);
 	});
-}
-
-
-Main::Main(Env & env) : env(env)
-{
-	sys_rom.sigh(sys_rom_handler);
-	platform_info.xml().with_optional_sub_node("kernel", [&] (Xml_node xml)
-	{
-		apic_capable = xml.attribute_value("acpi", false);
-		msi_capable  = xml.attribute_value("msi",  false);
-	});
-
-	sys_rom_update();
 }
 
 

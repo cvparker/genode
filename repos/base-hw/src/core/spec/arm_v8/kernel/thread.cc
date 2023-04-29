@@ -24,6 +24,9 @@ extern "C" void kernel_to_user_context_switch(void *, void *);
 using namespace Kernel;
 
 
+void Thread::_call_suspend() { }
+
+
 void Thread::exception(Cpu & cpu)
 {
 	switch (regs->exception_type) {
@@ -82,7 +85,13 @@ void Thread::exception(Cpu & cpu)
  * coprocessor registers (there might be ARM SoCs where this is not valid,
  * with several shareability domains, but until now we do not support them)
  */
-void Kernel::Thread::Tlb_invalidation::execute() { };
+void Kernel::Thread::Tlb_invalidation::execute(Cpu &) { }
+
+
+void Thread::Flush_and_stop_cpu::execute(Cpu &) { }
+
+
+void Cpu::Halt_job::proceed(Kernel::Cpu &) { }
 
 
 bool Kernel::Pd::invalidate_tlb(Cpu & cpu, addr_t addr, size_t size)

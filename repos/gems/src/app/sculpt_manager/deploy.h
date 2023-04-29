@@ -54,7 +54,7 @@ struct Sculpt::Deploy
 	Attached_rom_dataspace const &_launcher_listing_rom;
 	Attached_rom_dataspace const &_blueprint_rom;
 
-	Download_queue const &_download_queue;
+	Download_queue &_download_queue;
 
 	typedef String<16> Arch;
 	Arch _arch { };
@@ -78,7 +78,27 @@ struct Sculpt::Deploy
 	/* config obtained from '/config/managed/deploy' */
 	Attached_rom_dataspace _managed_deploy_rom { _env, "config -> managed/deploy" };
 
-	void update_managed_deploy_config(Xml_node deploy)
+	Constructible<Buffered_xml> _template { };
+
+	void use_as_deploy_template(Xml_node const &deploy)
+	{
+		_template.construct(_alloc, deploy);
+	}
+
+	void update_managed_deploy_config()
+	{
+		if (!_template.constructed())
+			return;
+
+		Xml_node const deploy = _template->xml();
+
+		if (deploy.type() == "empty")
+			return;
+
+		_update_managed_deploy_config(deploy);
+	}
+
+	void _update_managed_deploy_config(Xml_node deploy)
 	{
 		/*
 		 * Ignore intermediate states that may occur when manually updating
@@ -175,7 +195,6 @@ struct Sculpt::Deploy
 	bool update_needed() const
 	{
 		return _manual_installation_scheduled
-		    || _children.any_incomplete()
 		    || _download_queue.any_active_download();
 	}
 
@@ -261,9 +280,11 @@ struct Sculpt::Deploy
 		if (_installation.try_generate_manually_managed())
 			return;
 
+		_children.for_each_missing_pkg_path([&] (Depot::Archive::Path const path) {
+			_download_queue.add(path, Verify { true }); });
+
 		_installation.generate([&] (Xml_generator &xml) {
 			xml.attribute("arch", _arch);
-			_children.gen_installation_entries(xml);
 			_download_queue.gen_installation_entries(xml);
 		});
 	}
@@ -275,7 +296,7 @@ struct Sculpt::Deploy
 	       Depot_query &depot_query,
 	       Attached_rom_dataspace const &launcher_listing_rom,
 	       Attached_rom_dataspace const &blueprint_rom,
-	       Download_queue const &download_queue)
+	       Download_queue &download_queue)
 	:
 		_env(env), _alloc(alloc), _child_states(child_states),
 		_runtime_info(runtime_info),

@@ -25,7 +25,7 @@
 /* seL4 includes */
 #include <sel4/sel4.h>
 
-using namespace Genode;
+using namespace Core;
 
 
 void Mapping::prepare_map_operation() const { }
@@ -43,7 +43,7 @@ void Ipc_pager::wait_for_fault()
 		uint8_t    const depth   = 32;
 		int ret = seL4_CNode_SaveCaller(service, index, depth);
 		if (ret != seL4_NoError)
-			Genode::error("saving reply cap failed with ", ret);
+			error("saving reply cap failed with ", ret);
 	}
 	_reply_sel = 0;
 	_badge = 0;
@@ -53,7 +53,7 @@ void Ipc_pager::wait_for_fault()
 
 bool Ipc_pager::install_mapping()
 {
-	_badge = Genode::install_mapping(_reply_mapping, _badge);
+	_badge = Core::install_mapping(_reply_mapping, _badge);
 	return _badge;
 }
 
@@ -86,6 +86,8 @@ void Ipc_pager::reply_and_wait_for_fault()
 	_badge      = badge;
 
 	addr_t const fault_type = seL4_MessageInfo_get_label(page_fault_msg_info);
+
+	_exception = fault_type != seL4_Fault_VMFault;
 
 	auto fault_name = [] (addr_t type)
 	{
@@ -203,6 +205,22 @@ void Pager_entrypoint::entry()
 			if (!obj)
 				return;
 
+			/* on exception (beside page fault) don't reply and submit signal */
+			if (_pager.exception()) {
+				warning("exception ", _pager.fault_addr(), " ",
+				        *obj, " ip=", Hex(_pager.fault_ip()));
+				obj->submit_exception_signal();
+				return;
+			}
+
+			/* on alignment fault don't reply and submit signal */
+			if (_pager.align_fault()) {
+				warning("alignment fault, addr=", Hex(_pager.fault_addr()),
+				        " ip=", Hex(_pager.fault_ip()));
+				reply_pending = false;
+				obj->submit_exception_signal();
+			}
+
 			/* send reply if page-fault handling succeeded */
 			reply_pending = !obj->pager(_pager);
 			if (!reply_pending) {
@@ -213,20 +231,9 @@ void Pager_entrypoint::entry()
 				return;
 			}
 
-			try {
-				/* install memory mappings */
-				if (_pager.install_mapping())
-					return;
-
-				/* on alignment fault don't reply and submit signal */
-				if (_pager.align_fault()) {
-					warning("alignment fault, addr=", Hex(_pager.fault_addr()),
-					        " ip=", Hex(_pager.fault_ip()));
-					throw 1;
-				}
-			} catch (...) {
-				reply_pending = false;
-				obj->submit_exception_signal();
+			/* install memory mappings */
+			if (_pager.install_mapping()) {
+				return;
 			}
 		});
 	}

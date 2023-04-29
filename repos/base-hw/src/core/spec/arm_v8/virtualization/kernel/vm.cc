@@ -11,7 +11,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#include <base/log.h>
 #include <cpu/vm_state_virtualization.h>
 #include <util/mmio.h>
 
@@ -32,7 +31,8 @@ using Kernel::Vm;
 
 static Genode::Vm_state & host_context(Cpu & cpu)
 {
-	static Genode::Constructible<Genode::Vm_state> host_context[NR_OF_CPUS];
+	static Genode::Constructible<Genode::Vm_state>
+		host_context[Board::NR_OF_CPUS];
 
 	if (!host_context[cpu.id()].constructed()) {
 		host_context[cpu.id()].construct();

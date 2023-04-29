@@ -11,9 +11,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* Genode includes */
-#include <base/lock_guard.h>
-
 /* core includes */
 #include <util.h>
 #include <platform_pd.h>
@@ -23,12 +20,8 @@
 /* base-internal includes */
 #include <base/internal/okl4.h>
 
-using namespace Genode;
+using namespace Core;
 
-
-/****************************
- ** Private object members **
- ****************************/
 
 void Platform_pd::_create_pd(bool syscall)
 {

@@ -40,9 +40,6 @@ LX_ENABLE += ATH9K_DEBUGFS
 #LX_ENABLE += ATH9K_RFKILL ATH9K_PCI_NO_EEPROM
 #LX_ENABLE += ATH9K_HTC
 
-# ralink rt2800usb/rt3070
-LX_ENABLE += WLAN_VENDOR_RALINK RT2X00 RT2800USB
-
 # USB host-controller support
 LX_ENABLE += USB_SUPPORT USB USB_ARCH_HAS_HCD USB_XHCI_HCD USB_EHCI_HCD USB_OHCI_HCD
 LX_ENABLE += USB_PCI USB_UHCI_HCD USB_USBNET
@@ -56,6 +53,10 @@ LX_ENABLE += FB
 # mandatory fs support
 LX_ENABLE += PROC_FS SYSFS
 
+# disable cpu frequency scaling
+LX_DISABLE += SCHED_MC CPU_FREQ
+
+# disable optimization not possible in PIC code under Genode
 LX_DISABLE += CC_HAS_ASM_GOTO
 
 # slim down kernel by removing superfluous drivers

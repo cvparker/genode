@@ -21,12 +21,11 @@
 #include <cpu.h>
 #include <gic.h>
 #include <pl011.h>
-#include <virtio_console.h>
-#include <virtio_net.h>
-#include <virtio_block.h>
+#include <virtio_device.h>
 
 #include <base/attached_ram_dataspace.h>
 #include <base/attached_rom_dataspace.h>
+#include <gui_session/connection.h>
 #include <vm_session/connection.h>
 
 namespace Vmm {
@@ -55,18 +54,21 @@ class Vmm::Vm
 		Config                 & _config;
 		Vm_connection            _vm         { _env           };
 		Attached_rom_dataspace   _kernel_rom { _env, _config.kernel_name() };
-		Attached_rom_dataspace   _initrd_rom { _env, _config.initrd_name() };
 		Attached_ram_dataspace   _vm_ram     { _env.ram(), _env.rm(),
 		                                       _config.ram_size(), CACHED };
 		Ram                      _ram        { RAM_START, _config.ram_size(),
 		                                       (addr_t)_vm_ram.local_addr<void>()};
-		Mmio_bus                 _bus;
+		Mmio_bus                 _bus {};
 		Gic                      _gic;
-		List<Cpu_entry>          _cpu_list;
-		List<Virtio_device_base> _device_list;
+		List<Cpu_entry>          _cpu_list {};
+		List<Virtio_device_base> _device_list {};
 		Pl011                    _uart;
 
+		Constructible<Attached_rom_dataspace> _initrd_rom {};
+		Constructible<Gui::Connection>        _gui {};
+
 		addr_t _initrd_offset() const;
+		size_t _initrd_size()   const;
 		addr_t _dtb_offset()    const;
 
 		void _load_kernel();

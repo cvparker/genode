@@ -262,7 +262,8 @@ static int usb_rpc_call(void * data)
 			urbs->in_delete = 1;
 			usb_kill_anchored_urbs(&urbs->submitted);
 			urbs->in_delete = 0;
-			ret = usb_reset_configuration(udev);
+			if (udev->actconfig)
+				ret = usb_reset_configuration(udev);
 		}
 
 		usb_rpc_args.ret = ret;
@@ -334,24 +335,89 @@ struct genode_usb_rpc_callbacks lx_emul_usb_rpc_callbacks = {
 
 
 static genode_usb_request_ret_t
-handle_return_code(struct genode_usb_request_urb req, void * data)
+handle_return_code(struct genode_usb_request_urb req, struct genode_usb_buffer payload, void * data)
 {
 	return (genode_usb_request_ret_t)data;
 };
+
+
+extern int usb_get_langid(struct usb_device *dev, unsigned char *tbuf);
+extern int usb_string_sub(struct usb_device *dev, unsigned int langid, int index, unsigned char *tbuf);
+
+/**
+ * usb_string_utf16 - returns the string descriptor
+ * @dev: the device whose string descriptor is being retrieved
+ * @index: the number of the descriptor
+ * @buf: where to put the string
+ * @size: how big is "buf"?
+ *
+ * Context: task context, might sleep.
+ *
+ * This returns the UTF-16LE encoded strings returned by devices, from
+ * usb_get_string_descriptor().  Note that this function
+ * chooses strings in the first language supported by the device.
+ *
+ * This call is synchronous, and may not be used in an interrupt context.
+ *
+ * Return: length of the string (>= 0) or usb_control_msg status (< 0).
+ */
+static int usb_string_utf16(struct usb_device *dev, int index, char *buf, size_t size)
+{
+	unsigned char *tbuf;
+	int err;
+	size_t len;
+	if (dev->state == USB_STATE_SUSPENDED)
+		return -EHOSTUNREACH;
+	if (size <= 2 || buf == NULL)
+		return -EINVAL;
+	buf[0] = 0;
+	if (index <= 0 || index >= 256)
+		return -EINVAL;
+	tbuf = kmalloc(256, GFP_NOIO);
+	if (!tbuf)
+		return -ENOMEM;
+
+	err = usb_get_langid(dev, tbuf);
+	if (err < 0)
+		goto errout;
+
+	err = usb_string_sub(dev, dev->string_langid, index, tbuf);
+	if (err < 0)
+		goto errout;
+
+	len = min(size-2, (size_t)err);
+	memcpy(buf, tbuf+2, len);
+
+	buf[len] = 0;
+	buf[len+1] = 0;
+	err = len + 2;
+
+	if (tbuf[1] != USB_DT_STRING)
+		dev_dbg(&dev->dev,
+			"wrong descriptor type %02x for string %d (\"%s\")\n",
+			tbuf[1], index, buf);
+
+ errout:
+	kfree(tbuf);
+	return err;
+}
 
 
 static void
 handle_string_request(struct genode_usb_request_string * req,
                       genode_usb_session_handle_t        session,
                       genode_usb_request_handle_t        request,
-                      void                             * buf,
-                      unsigned long                      size,
+                      struct genode_usb_buffer           payload,
                       void                             * data)
 {
 	struct usb_device * udev = (struct usb_device *) data;
 	genode_usb_request_ret_t ret = UNKNOWN_ERROR;
+	int length = 0;
 
-	int length = usb_string(udev, req->index, buf, size);
+	if (!payload.size || !payload.addr)
+		return;
+
+	length = usb_string_utf16(udev, req->index, payload.addr, payload.size);
 	if (length < 0) {
 		printk("Could not read string descriptor index: %u\n", req->index);
 		req->length = 0;
@@ -441,6 +507,7 @@ struct usb_urb_context
 
 static genode_usb_request_ret_t
 handle_transfer_response(struct genode_usb_request_urb req,
+                         struct genode_usb_buffer payload,
                          void * data)
 {
 	struct usb_urb_context * context = (struct usb_urb_context *) data;
@@ -451,35 +518,39 @@ handle_transfer_response(struct genode_usb_request_urb req,
 		genode_usb_get_request_transfer(&req);
 	int i;
 
-	if (urb->status == 0) {
+	/* handle failure first */
+	if (urb->status) {
 		if (ctrl)
-			ctrl->actual_size = urb->actual_length;
-		if (transfer) {
-			transfer->actual_size = urb->actual_length;
+			ctrl->actual_size = 0;
 
-			if (usb_pipein(urb->pipe))
-				for (i = 0; i < urb->number_of_packets; i++)
-					transfer->actual_packet_size[i] =
-						urb->iso_frame_desc[i].actual_length;
-		}
-		return NO_ERROR;
-	}
+		if (context->timer_state == TIMER_TRIGGERED)
+			return TIMEOUT_ERROR;
 
-	if (ctrl)
-		ctrl->actual_size = 0;
-
-	if (context->timer_state == TIMER_TRIGGERED)
-		return TIMEOUT_ERROR;
-
-	switch (urb->status) {
+		switch (urb->status) {
 		case -ENOENT:    return INTERFACE_OR_ENDPOINT_ERROR;
 		case -ENODEV:    return NO_DEVICE_ERROR;
 		case -ESHUTDOWN: return NO_DEVICE_ERROR;
 		case -EPROTO:    return PROTOCOL_ERROR;
 		case -EILSEQ:    return PROTOCOL_ERROR;
 		case -EPIPE:     return STALL_ERROR;
-	};
-	return UNKNOWN_ERROR;
+		};
+		return UNKNOWN_ERROR;
+	}
+
+	if (ctrl)
+		ctrl->actual_size = urb->actual_length;
+	if (transfer) {
+		transfer->actual_size = urb->actual_length;
+
+		if (usb_pipeisoc(urb->pipe) && usb_pipein(urb->pipe)) {
+			struct genode_usb_isoc_transfer *isoc =
+				(struct genode_usb_isoc_transfer *)payload.addr;
+			for (i = 0; i < isoc->number_of_packets; i++)
+				isoc->actual_packet_size[i] =
+					urb->iso_frame_desc[i].actual_length;
+		}
+	}
+	return NO_ERROR;
 }
 
 
@@ -528,14 +599,16 @@ static void urb_timeout(struct timer_list *t)
 static int fill_ctrl_urb(struct usb_device                 * udev,
                          struct genode_usb_request_control * req,
                          void                              * handle,
-                         void                              * buf,
-                         unsigned long                       size,
+                         struct genode_usb_buffer            buf,
                          int                                 read,
                          struct urb                       ** urb)
 {
 	int pipe = read ? usb_rcvctrlpipe(udev, 0) : usb_sndctrlpipe(udev, 0);
 	struct usb_ctrlrequest * ucr =
 		kmalloc(sizeof(struct usb_ctrlrequest), GFP_NOIO);
+
+	if (buf.size && !buf.addr)
+		return PACKET_INVALID_ERROR;
 
 	*urb = usb_alloc_urb(0, GFP_KERNEL);
 
@@ -549,9 +622,9 @@ static int fill_ctrl_urb(struct usb_device                 * udev,
 	ucr->bRequest     = req->request;
 	ucr->wValue       = cpu_to_le16(req->value);
 	ucr->wIndex       = cpu_to_le16(req->index);
-	ucr->wLength      = cpu_to_le16(size);
+	ucr->wLength      = cpu_to_le16(buf.size);
 
-	usb_fill_control_urb(*urb, udev, pipe, (unsigned char*)ucr, buf, size,
+	usb_fill_control_urb(*urb, udev, pipe, (unsigned char*)ucr, buf.addr, buf.size,
 	                     async_complete, handle);
 	return 0;
 }
@@ -560,19 +633,21 @@ static int fill_ctrl_urb(struct usb_device                 * udev,
 static int fill_bulk_urb(struct usb_device                  * udev,
                          struct genode_usb_request_transfer * req,
                          void                               * handle,
-                         void                               * buf,
-                         unsigned long                        size,
+                         struct genode_usb_buffer             buf,
                          int                                  read,
                          struct urb                        ** urb)
 {
 	int pipe = (read)
 		? usb_rcvbulkpipe(udev, req->ep) : usb_sndbulkpipe(udev, req->ep);
 
+	if (!buf.addr)
+		return PACKET_INVALID_ERROR;
+
 	*urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!*urb)
 		return -ENOMEM;
 
-	usb_fill_bulk_urb(*urb, udev, pipe, buf, size, async_complete, handle);
+	usb_fill_bulk_urb(*urb, udev, pipe, buf.addr, buf.size, async_complete, handle);
 	return 0;
 }
 
@@ -580,14 +655,16 @@ static int fill_bulk_urb(struct usb_device                  * udev,
 static int fill_irq_urb(struct usb_device                  * udev,
                         struct genode_usb_request_transfer * req,
                         void                               * handle,
-                        void                               * buf,
-                        unsigned long                        size,
+                        struct genode_usb_buffer             buf,
                         int                                  read,
                         struct urb                        ** urb)
 {
 	int polling_interval;
 	int pipe = (read)
 		? usb_rcvintpipe(udev, req->ep) : usb_sndintpipe(udev, req->ep);
+
+	if (buf.size && !buf.addr)
+		return PACKET_INVALID_ERROR;
 
 	*urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!*urb)
@@ -605,7 +682,7 @@ static int fill_irq_urb(struct usb_device                  * udev,
 	} else
 		polling_interval = req->polling_interval;
 
-	usb_fill_int_urb(*urb, udev, pipe, buf, size,
+	usb_fill_int_urb(*urb, udev, pipe, buf.addr, buf.size,
 	                 async_complete, handle, polling_interval);
 	return 0;
 }
@@ -614,8 +691,7 @@ static int fill_irq_urb(struct usb_device                  * udev,
 static int fill_isoc_urb(struct usb_device                  * udev,
                          struct genode_usb_request_transfer * req,
                          void                               * handle,
-                         void                               * buf,
-                         unsigned long                        size,
+                         struct genode_usb_buffer             buf,
                          int                                  read,
                          struct urb                        ** urb)
 {
@@ -626,10 +702,15 @@ static int fill_isoc_urb(struct usb_device                  * udev,
 	struct usb_host_endpoint * ep =
 		req->ep & USB_DIR_IN ? udev->ep_in[req->ep & 0xf]
 		                     : udev->ep_out[req->ep & 0xf];
+
+	struct genode_usb_isoc_transfer *isoc = (struct genode_usb_isoc_transfer *)buf.addr;
+
+	if (!buf.addr || isoc->number_of_packets > MAX_PACKETS)
+		return PACKET_INVALID_ERROR;
 	if (!ep)
 		return -ENOENT;
 
-	*urb = usb_alloc_urb(req->number_of_packets, GFP_KERNEL);
+	*urb = usb_alloc_urb(isoc->number_of_packets, GFP_KERNEL);
 	if (!*urb)
 		return -ENOMEM;
 
@@ -637,18 +718,18 @@ static int fill_isoc_urb(struct usb_device                  * udev,
 	(*urb)->pipe                   = pipe;
 	(*urb)->start_frame            = -1;
 	(*urb)->stream_id              = 0;
-	(*urb)->transfer_buffer        = buf;
-	(*urb)->transfer_buffer_length = size;
-	(*urb)->number_of_packets      = req->number_of_packets;
+	(*urb)->transfer_buffer        = isoc->data;
+	(*urb)->transfer_buffer_length = buf.size - sizeof(*isoc);
+	(*urb)->number_of_packets      = isoc->number_of_packets;
 	(*urb)->interval               = 1 << min(15, ep->desc.bInterval - 1);
 	(*urb)->context                = handle;
 	(*urb)->transfer_flags         = URB_ISO_ASAP | (read ? URB_DIR_IN : URB_DIR_OUT);
 	(*urb)->complete               = async_complete;
 
-	for (i = 0; i < req->number_of_packets; i++) {
+	for (i = 0; i < isoc->number_of_packets; i++) {
 		(*urb)->iso_frame_desc[i].offset = offset;
-		(*urb)->iso_frame_desc[i].length = req->packet_size[i];
-		offset += req->packet_size[i];
+		(*urb)->iso_frame_desc[i].length = isoc->packet_size[i];
+		offset += isoc->packet_size[i];
 	}
 
 	return 0;
@@ -659,7 +740,7 @@ static void
 handle_urb_request(struct genode_usb_request_urb req,
                    genode_usb_session_handle_t   session_handle,
                    genode_usb_request_handle_t   request_handle,
-                   void * buf, unsigned long size, void * data)
+                   struct genode_usb_buffer payload, void * data)
 {
 	struct usb_device * udev = (struct usb_device *) data;
 	struct usb_iface_urbs * urbs = dev_get_drvdata(&udev->dev);
@@ -685,21 +766,21 @@ handle_urb_request(struct genode_usb_request_urb req,
 
 	switch (req.type) {
 	case CTRL:
-		err = fill_ctrl_urb(udev, ctrl, context, buf, size,
+		err = fill_ctrl_urb(udev, ctrl, context, payload,
 		                    (ctrl->request_type & 0x80), &urb);
 		break;
 	case BULK:
-		err = fill_bulk_urb(udev, transfer, context, buf, size, read, &urb);
+		err = fill_bulk_urb(udev, transfer, context, payload, read, &urb);
 		break;
 	case IRQ:
-		err = fill_irq_urb(udev, transfer, context, buf, size, read, &urb);
+		err = fill_irq_urb(udev, transfer, context, payload, read, &urb);
 		break;
 	case ISOC:
-		err = fill_isoc_urb(udev, transfer, context, buf, size, read, &urb);
+		err = fill_isoc_urb(udev, transfer, context, payload, read, &urb);
 		break;
 	default:
 		printk("Unknown USB transfer request!\n");
-		goto error;
+		err = PACKET_INVALID_ERROR;
 	};
 
 	if (err)
@@ -730,6 +811,8 @@ handle_urb_request(struct genode_usb_request_urb req,
 		case -ESHUTDOWN: ret = NO_DEVICE_ERROR; break;
 		case -ENOSPC:    ret = STALL_ERROR; break;
 		case -ENOMEM:    ret = MEMORY_ERROR; break;
+
+		case PACKET_INVALID_ERROR: ret = PACKET_INVALID_ERROR; break;
 	}
  error:
 	genode_usb_ack_request(context->session, context->request,

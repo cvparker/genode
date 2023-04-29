@@ -23,6 +23,9 @@
 #include <base/registry.h>
 #include <base/log.h>
 
+/* format-string includes */
+#include <format/snprintf.h>
+
 /* LwIP includes */
 #include <lwip_genode_init.h>
 #include <nic_netif.h>
@@ -130,8 +133,7 @@ struct Lwip::Directory
 {
 	virtual ~Directory() { }
 
-	virtual Read_result readdir(char *dst, file_size count,
-	                            file_size &out_count) = 0;
+	virtual Read_result readdir(Byte_range_ptr const &dst, size_t &out_count) = 0;
 
 	virtual bool directory(char const *path) = 0;
 };
@@ -142,11 +144,9 @@ struct Lwip::Lwip_handle : Vfs::Vfs_handle
 	Lwip_handle(Vfs::File_system &fs, Allocator &alloc, int status_flags)
 	: Vfs_handle(fs, fs, alloc, status_flags) { }
 
-	virtual Read_result read(char *dst, file_size count,
-	                         file_size &out_count) = 0;
+	virtual Read_result read(Byte_range_ptr const &dst, size_t &out_count) = 0;
 
-	virtual Write_result write(char const *, file_size,
-	                           file_size &) {
+	virtual Write_result write(Const_byte_range_ptr const &, size_t &) {
 		return Write_result::WRITE_ERR_INVALID; }
 };
 
@@ -166,11 +166,10 @@ struct Lwip::Lwip_dir_handle final : Lwip_handle
 	Lwip_dir_handle(Vfs::File_system &fs, Allocator &alloc, Directory &dir)
 	: Lwip_handle(fs, alloc, 0), dir(&dir) { }
 
-	Read_result read(char *dst, file_size count,
-	                 file_size &out_count) override
+	Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 	{
 		return (dir)
-			? dir->readdir(dst, count, out_count)
+			? dir->readdir(dst, out_count)
 			: Read_result::READ_ERR_INVALID;
 	}
 };
@@ -182,15 +181,14 @@ struct Lwip::Lwip_nameserver_handle final : Lwip_handle, private Nameserver_regi
 	: Lwip_handle(fs, alloc, Vfs::Directory_service::OPEN_MODE_RDONLY),
 	  Nameserver_registry::Element(registry, *this) { }
 
-	Read_result read(char *dst, file_size count,
-	                 file_size &out_count) override
+	Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 	{
-		memset(dst, 0x00, min(file_size(IPADDR_STRLEN_MAX), count));
-		ipaddr_ntoa_r(dns_getserver(0), dst, count);
+		memset(dst.start, 0x00, min(file_size(IPADDR_STRLEN_MAX), dst.num_bytes));
+		ipaddr_ntoa_r(dns_getserver(0), dst.start, dst.num_bytes);
 
-		auto n = strlen(dst);
-		if (n < count)
-			dst[n] = '\n';
+		auto n = strlen(dst.start);
+		if (n < dst.num_bytes)
+			dst.start[n] = '\n';
 
 		out_count = n+1;
 		return Read_result::READ_OK;
@@ -208,8 +206,7 @@ struct Lwip::Lwip_address_handle final : Lwip_handle
 	, netif(netif)
 	{ }
 
-	Read_result read(char *dst, file_size count,
-	                 file_size &out_count) override
+	Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 	{
 		using namespace Genode;
 
@@ -220,8 +217,8 @@ struct Lwip::Lwip_address_handle final : Lwip_handle
 		Genode::String<ADDRESS_FILE_SIZE>
 			line((char const *)address, "\n");
 
-		size_t n = min(line.length(), count);
-		memcpy(dst, line.string(), n);
+		size_t n = min(line.length(), dst.num_bytes);
+		memcpy(dst.start, line.string(), n);
 		out_count = n;
 		return Read_result::READ_OK;
 	}
@@ -238,8 +235,7 @@ struct Lwip::Lwip_netmask_handle final : Lwip_handle
 	, netif(netif)
 	{ }
 
-	Read_result read(char *dst, file_size count,
-	                 file_size &out_count) override
+	Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 	{
 		using namespace Genode;
 
@@ -250,8 +246,8 @@ struct Lwip::Lwip_netmask_handle final : Lwip_handle
 		Genode::String<ADDRESS_FILE_SIZE>
 			line((char const *)netmask, "\n");
 
-		size_t n = min(line.length(), count);
-		memcpy(dst, line.string(), n);
+		size_t n = min(line.length(), dst.num_bytes);
+		memcpy(dst.start, line.string(), n);
 		out_count = n;
 		return Read_result::READ_OK;
 	}
@@ -318,11 +314,9 @@ struct Lwip::Lwip_file_handle final : Lwip_handle, private Lwip_handle_list::Ele
 
 	~Lwip_file_handle();
 
-	Read_result read(char *dst, file_size count,
-	                 file_size &out_count) override;
+	Read_result read(Byte_range_ptr const &dst, size_t &out_count) override;
 
-	Write_result write(char const *src, file_size count,
-	                   file_size &out_count) override;
+	Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override;
 
 	bool notify_read_ready();
 };
@@ -338,7 +332,7 @@ struct Lwip::Socket_dir : Lwip::Directory
 		{
 			char buf[Socket_name::capacity()];
 			return Socket_name(Genode::Cstring(
-				buf, Genode::snprintf(buf, Socket_name::capacity(), "%x", num)));
+				buf, Format::snprintf(buf, Socket_name::capacity(), "%x", num)));
 		}
 
 		Genode::Allocator &alloc;
@@ -406,7 +400,7 @@ struct Lwip::Socket_dir : Lwip::Directory
 			return Open_result::OPEN_OK;
 		}
 
-		Read_result readdir(char *, file_size, file_size &) override
+		Read_result readdir(Byte_range_ptr const &, size_t &) override
 		{
 			Genode::warning(__func__, " NOT_IMPLEMENTED");
 			return Read_result::READ_ERR_INVALID;
@@ -418,13 +412,13 @@ struct Lwip::Socket_dir : Lwip::Directory
 			return (!*path);
 		}
 
-		virtual Read_result read(Lwip_file_handle&,
-		                         char *dst, file_size count,
-		                         file_size &out_count) = 0;
+		virtual Read_result read(Lwip_file_handle &,
+		                         Byte_range_ptr const &dst,
+		                         size_t &out_count) = 0;
 
-		virtual Write_result write(Lwip_file_handle&,
-		                           char const *src, file_size count,
-		                           file_size &out_count) = 0;
+		virtual Write_result write(Lwip_file_handle &,
+		                           Const_byte_range_ptr const &src,
+		                           size_t &out_count) = 0;
 
 		virtual bool read_ready (Lwip_file_handle const &) const = 0;
 		virtual bool write_ready(Lwip_file_handle const &) const = 0;
@@ -438,26 +432,18 @@ struct Lwip::Socket_dir : Lwip::Directory
 			read_ready_queue.dequeue_all([] (Lwip_file_handle::Fifo_element &elem) {
 				elem.object().read_ready_response(); });
 		}
-
-		/**
-		 * Notify handles blocked by operations on this PCB / socket
-		 */
-		void process_io()
-		{
-			/* invoke all handles waiting for IO progress */
-			io_progress_queue.dequeue_all([] (Lwip_file_handle::Fifo_element &elem) {
-				elem.object().io_progress_response(); });
-		}
 };
 
 
 Lwip::Lwip_file_handle::Lwip_file_handle(Vfs::File_system &fs, Allocator &alloc,
                                          int status_flags,
                                          Socket_dir &s, Lwip_file_handle::Kind k)
-: Lwip_handle(fs, alloc, status_flags), socket(&s), kind(k)
+:
+	Lwip_handle(fs, alloc, status_flags), socket(&s), kind(k)
 {
 	socket->handles.insert(this);
 }
+
 
 Lwip::Lwip_file_handle::~Lwip_file_handle()
 {
@@ -472,23 +458,38 @@ Lwip::Lwip_file_handle::~Lwip_file_handle()
 	}
 }
 
-Lwip::Read_result Lwip::Lwip_file_handle::read(char *dst, file_size count,
-                                               file_size &out_count)
+
+Lwip::Read_result Lwip::Lwip_file_handle::read(Byte_range_ptr const &dst,
+                                               size_t &out_count)
 {
 	if (!socket)
 		return Read_result::READ_ERR_INVALID;
 
+<<<<<<< HEAD
 	return socket->read(*this, dst, count, out_count);
 }
 
 Lwip::Write_result Lwip::Lwip_file_handle::write(char const *src, file_size count,
                                                  file_size &out_count)
+=======
+	return socket->read(*this, dst, out_count);
+}
+
+
+Lwip::Write_result Lwip::Lwip_file_handle::write(Const_byte_range_ptr const &src,
+                                                 size_t &out_count)
+>>>>>>> origin/master
 {
 	if (!socket)
 		return Write_result::WRITE_ERR_INVALID;
 
+<<<<<<< HEAD
 	return socket->write(*this, src, count, out_count);
+=======
+	return socket->write(*this, src, out_count);
+>>>>>>> origin/master
 }
+
 
 bool Lwip::Lwip_file_handle::notify_read_ready()
 {
@@ -551,6 +552,7 @@ class Lwip::Protocol_dir_impl final : public Protocol_dir
 
 		Genode::Allocator  &_alloc;
 		Genode::Entrypoint &_ep;
+		Vfs::Env::User     &_vfs_user;
 
 		Genode::List<SOCKET_DIR> _socket_dirs { };
 
@@ -562,8 +564,8 @@ class Lwip::Protocol_dir_impl final : public Protocol_dir
 		friend class Tcp_socket_dir;
 		friend class Udp_socket_dir;
 
-		Protocol_dir_impl(Vfs::Env &vfs_env)
-		: _alloc(vfs_env.alloc()), _ep(vfs_env.env().ep()) { }
+		Protocol_dir_impl(Vfs::Env &env)
+		: _alloc(env.alloc()), _ep(env.env().ep()), _vfs_user(env.user()) { }
 
 		SOCKET_DIR *lookup(char const *name)
 		{
@@ -653,7 +655,7 @@ class Lwip::Protocol_dir_impl final : public Protocol_dir
 			return Directory_service::STAT_ERR_NO_ENTRY;
 		}
 
-		Read_result readdir(char *, file_size, file_size &) override
+		Read_result readdir(Byte_range_ptr const &, size_t &) override
 		{
 			Genode::warning(__func__, " NOT_IMPLEMENTED");
 			return Read_result::READ_ERR_INVALID;
@@ -684,7 +686,7 @@ class Lwip::Protocol_dir_impl final : public Protocol_dir
 			}
 
 			SOCKET_DIR *new_socket = new (alloc)
-				SOCKET_DIR(id, *this, alloc, _ep, pcb);
+				SOCKET_DIR(id, *this, alloc, _ep, _vfs_user, pcb);
 			_socket_dirs.insert(new_socket);
 			return *new_socket;
 		}
@@ -738,11 +740,9 @@ class Lwip::Protocol_dir_impl final : public Protocol_dir
 			return Opendir_result::OPENDIR_ERR_LOOKUP_FAILED;
 		}
 
-		void notify()
+		void wakeup_vfs_user()
 		{
-			for (SOCKET_DIR *sd = _socket_dirs.first(); sd; sd = sd->next()) {
-				sd->process_io();
-			}
+			_vfs_user.wakeup_vfs_user();
 		}
 };
 
@@ -761,6 +761,8 @@ class Lwip::Udp_socket_dir final :
 	private Udp_socket_dir_list::Element
 {
 	private:
+
+		Vfs::Env::User &_vfs_user;
 
 		/*
 		  * Noncopyable
@@ -840,9 +842,12 @@ class Lwip::Udp_socket_dir final :
 		Udp_socket_dir(unsigned num, Udp_proto_dir &proto_dir,
 		               Genode::Allocator &alloc,
 		               Genode::Entrypoint &,
+		               Vfs::Env::User &vfs_user,
 		               udp_pcb *pcb)
-		: Socket_dir(num, alloc),
-		  _proto_dir(proto_dir), _pcb(pcb ? pcb : udp_new())
+		:
+			Socket_dir(num, alloc),
+			_vfs_user(vfs_user),
+			_proto_dir(proto_dir), _pcb(pcb ? pcb : udp_new())
 		{
 			ip_addr_set_zero(&_to_addr);
 
@@ -875,7 +880,7 @@ class Lwip::Udp_socket_dir final :
 				pbuf_free(buf);
 			}
 
-			process_io();
+			_vfs_user.wakeup_vfs_user();
 			process_read_ready();
 		}
 
@@ -897,9 +902,8 @@ class Lwip::Udp_socket_dir final :
 			return true;
 		}
 
-		Read_result read(Lwip_file_handle &handle,
-		                 char *dst, file_size count,
-		                 file_size &out_count) override
+		Read_result read(Lwip_file_handle &handle, Byte_range_ptr const &dst,
+		                 size_t &out_count) override
 		{
 			Read_result result = Read_result::READ_ERR_INVALID;
 
@@ -908,7 +912,7 @@ class Lwip::Udp_socket_dir final :
 			case Lwip_file_handle::DATA: {
 				result = Read_result::READ_QUEUED;
 				_packet_queue.head([&] (Packet &pkt) {
-					out_count = pkt.read(dst, count);
+					out_count = pkt.read(dst.start, dst.num_bytes);
 					if (pkt.empty()) {
 						_packet_queue.remove(pkt);
 						destroy(_packet_slab, &pkt);
@@ -920,18 +924,18 @@ class Lwip::Udp_socket_dir final :
 
 			case Lwip_file_handle::PEEK:
 				_packet_queue.head([&] (Packet const &pkt) {
-					out_count = pkt.peek(dst, count);
+					out_count = pkt.peek(dst.start, dst.num_bytes);
 					result = Read_result::READ_OK;
 				});
 				break;
 
 			case Lwip_file_handle::LOCAL:
 			case Lwip_file_handle::BIND: {
-				if (count < ENDPOINT_STRLEN_MAX)
+				if (dst.num_bytes < ENDPOINT_STRLEN_MAX)
 					return Read_result::READ_ERR_INVALID;
 				char const *ip_str = ipaddr_ntoa(&_pcb->local_ip);
 				/* TODO: [IPv6]:port */
-				out_count = Genode::snprintf(dst, count, "%s:%d\n",
+				out_count = Format::snprintf(dst.start, dst.num_bytes, "%s:%d\n",
 				                             ip_str, _pcb->local_port);
 				return Read_result::READ_OK;
 			}
@@ -939,14 +943,14 @@ class Lwip::Udp_socket_dir final :
 			case Lwip_file_handle::CONNECT: {
 				/* check if the PCB was connected */
 				if (!ip_addr_isany(&_pcb->remote_ip))
-					out_count = Genode::snprintf(dst, count, "connected");
+					out_count = Format::snprintf(dst.start, dst.num_bytes, "connected");
 				else
-					out_count = Genode::snprintf(dst, count, "not connected");
+					out_count = Format::snprintf(dst.start, dst.num_bytes, "not connected");
 				return Read_result::READ_OK;
 			}
 
 			case Lwip_file_handle::REMOTE:
-				if (count < ENDPOINT_STRLEN_MAX) {
+				if (dst.num_bytes < ENDPOINT_STRLEN_MAX) {
 					Genode::error("VFS LwIP: accept file read buffer is too small");
 					result = Read_result::READ_ERR_INVALID;
 				} else
@@ -954,14 +958,14 @@ class Lwip::Udp_socket_dir final :
 					_packet_queue.head([&] (Packet &pkt) {
 						char const *ip_str = ipaddr_ntoa(&pkt.addr);
 						/* TODO: IPv6 */
-						out_count = Genode::snprintf(dst, count, "%s:%d\n",
+						out_count = Format::snprintf(dst.start, dst.num_bytes, "%s:%d\n",
 					                                 ip_str, pkt.port);
 						result = Read_result::READ_OK;
 					});
 				} else {
 					char const *ip_str = ipaddr_ntoa(&_pcb->remote_ip);
 					/* TODO: [IPv6]:port */
-					out_count = Genode::snprintf(dst, count, "%s:%d\n",
+					out_count = Format::snprintf(dst.start, dst.num_bytes, "%s:%d\n",
 					                             ip_str, _pcb->remote_port);
 					result = Read_result::READ_OK;
 				}
@@ -971,8 +975,8 @@ class Lwip::Udp_socket_dir final :
 				/*
 				 * Print the location of this socket directory
 				 */
-				out_count = Genode::snprintf(
-					dst, count, "udp/%s\n", name().string());
+				out_count = Format::snprintf(dst.start, dst.num_bytes, "udp/%s\n",
+				                             name().string());
 				return Read_result::READ_OK;
 				break;
 
@@ -983,6 +987,7 @@ class Lwip::Udp_socket_dir final :
 		}
 
 		bool write_ready(Lwip_file_handle const &) const override
+<<<<<<< HEAD
 		{
 			return true;
 		}
@@ -991,15 +996,27 @@ class Lwip::Udp_socket_dir final :
 		                   char const *src, file_size count,
 		                   file_size &out_count) override
 		{
+=======
+		{
+			return true;
+		}
+
+		Write_result write(Lwip_file_handle &handle,
+		                   Const_byte_range_ptr const &src,
+		                   size_t &out_count) override
+		{
+>>>>>>> origin/master
 			switch (handle.kind) {
 
 			case Lwip_file_handle::DATA: {
 				if (ip_addr_isany(&_to_addr)) break;
 
-				file_size remain = count;
+				char const *src_ptr = src.start;
+				size_t      remain  = src.num_bytes;
+
 				while (remain) {
-					pbuf *buf = pbuf_alloc(PBUF_RAW, remain, PBUF_RAM);
-					pbuf_take(buf, src, buf->tot_len);
+					pbuf * const buf = pbuf_alloc(PBUF_RAW, remain, PBUF_RAM);
+					pbuf_take(buf, src_ptr, buf->tot_len);
 
 					err_t err = udp_sendto(_pcb, buf, &_to_addr, _to_port);
 					pbuf_free(buf);
@@ -1007,10 +1024,10 @@ class Lwip::Udp_socket_dir final :
 						return Write_result::WRITE_ERR_WOULD_BLOCK;
 					else if (err != ERR_OK)
 						return Write_result::WRITE_ERR_IO;
-					remain -= buf->tot_len;
-					src += buf->tot_len;
+					remain  -= buf->tot_len;
+					src_ptr += buf->tot_len;
 				}
-				out_count = count;
+				out_count = src.num_bytes;
 				return Write_result::WRITE_OK;
 			}
 
@@ -1019,12 +1036,11 @@ class Lwip::Udp_socket_dir final :
 					return Write_result::WRITE_ERR_INVALID;
 				} else {
 					char buf[ENDPOINT_STRLEN_MAX];
-					copy_cstring(buf, src, min(count+1, sizeof(buf)));
+					copy_cstring(buf, src.start, min(src.num_bytes + 1, sizeof(buf)));
 
 					_to_port = remove_port(buf);
-					out_count = count;
 					if (ipaddr_aton(buf, &_to_addr)) {
-						out_count = count;
+						out_count = src.num_bytes;
 						return Write_result::WRITE_OK;
 					}
 				}
@@ -1032,19 +1048,19 @@ class Lwip::Udp_socket_dir final :
 			}
 
 			case Lwip_file_handle::BIND: {
-				if (count < ENDPOINT_STRLEN_MAX) {
+				if (src.num_bytes < ENDPOINT_STRLEN_MAX) {
 					char buf[ENDPOINT_STRLEN_MAX];
 					ip_addr_t addr;
 					u16_t port;
 
-					copy_cstring(buf, src, min(count+1, sizeof(buf)));
+					copy_cstring(buf, src.start, min(src.num_bytes + 1, sizeof(buf)));
 					port = remove_port(buf);
 					if (!ipaddr_aton(buf, &addr))
 						break;
 
 					err_t err = udp_bind(_pcb, &addr, port);
 					if (err == ERR_OK) {
-						out_count = count;
+						out_count = src.num_bytes;
 						return Write_result::WRITE_OK;
 					}
 					return Write_result::WRITE_ERR_IO;
@@ -1053,10 +1069,10 @@ class Lwip::Udp_socket_dir final :
 			}
 
 			case Lwip_file_handle::CONNECT: {
-				if (count < ENDPOINT_STRLEN_MAX) {
+				if (src.num_bytes < ENDPOINT_STRLEN_MAX) {
 					char buf[ENDPOINT_STRLEN_MAX];
 
-					copy_cstring(buf, src, min(count+1, sizeof(buf)));
+					copy_cstring(buf, src.start, min(src.num_bytes + 1, sizeof(buf)));
 
 					_to_port = remove_port(buf);
 					if (!ipaddr_aton(buf, &_to_addr))
@@ -1068,7 +1084,7 @@ class Lwip::Udp_socket_dir final :
 						return Write_result::WRITE_ERR_IO;
 					}
 
-					out_count = count;
+					out_count = src.num_bytes;
 					return Write_result::WRITE_OK;
 				}
 				break;
@@ -1110,6 +1126,7 @@ class Lwip::Tcp_socket_dir final :
 
 		Tcp_proto_dir       &_proto_dir;
 		Genode::Entrypoint  &_ep;
+		Vfs::Env::User      &_vfs_user;
 
 		typedef Genode::List<Pcb_pending> Pcb_pending_list;
 
@@ -1118,7 +1135,6 @@ class Lwip::Tcp_socket_dir final :
 
 		/* queue of received data */
 		pbuf *_recv_pbuf = nullptr;
-		u16_t _recv_off  = 0;
 
 		Open_result _accept_new_socket(Vfs::File_system &fs,
                                        Genode::Allocator &alloc,
@@ -1141,9 +1157,12 @@ class Lwip::Tcp_socket_dir final :
 		Tcp_socket_dir(unsigned num, Tcp_proto_dir &proto_dir,
 		               Genode::Allocator &alloc,
 		               Genode::Entrypoint &ep,
+		               Vfs::Env::User &vfs_user,
 		               tcp_pcb *pcb)
-		: Socket_dir(num, alloc), _proto_dir(proto_dir),
-		  _ep(ep), _pcb(pcb ? pcb : tcp_new()), state(pcb ? READY : NEW)
+		:
+			Socket_dir(num, alloc), _proto_dir(proto_dir),
+			_ep(ep), _vfs_user(vfs_user),
+			_pcb(pcb ? pcb : tcp_new()), state(pcb ? READY : NEW)
 		{
 			/* 'this' will be the argument to LwIP callbacks */
 			tcp_arg(_pcb, this);
@@ -1189,7 +1208,7 @@ class Lwip::Tcp_socket_dir final :
 			tcp_arg(newpcb, elem);
 			tcp_recv(newpcb, tcp_delayed_recv_callback);
 
-			process_io();
+			_vfs_user.wakeup_vfs_user();
 			process_read_ready();
 			return ERR_OK;
 		}
@@ -1197,13 +1216,17 @@ class Lwip::Tcp_socket_dir final :
 		/**
 		 * chain a buffer to the queue
 		 */
-		void recv(struct pbuf *buf)
+		err_t recv(struct pbuf *buf)
 		{
-			if (_recv_pbuf && buf) {
+			if (!buf)
+				return ERR_ARG;
+
+			if (_recv_pbuf)
 				pbuf_cat(_recv_pbuf, buf);
-			} else {
+			else
 				_recv_pbuf = buf;
-			}
+
+			return ERR_OK;
 		}
 
 		/**
@@ -1220,8 +1243,13 @@ class Lwip::Tcp_socket_dir final :
 			_pcb = NULL;
 
 			/* churn the application */
-			process_io();
+			wakeup_vfs_user();
 			process_read_ready();
+		}
+
+		void wakeup_vfs_user()
+		{
+			_vfs_user.wakeup_vfs_user();
 		}
 
 		/**
@@ -1297,9 +1325,8 @@ class Lwip::Tcp_socket_dir final :
 			return false;
 		}
 
-		Read_result read(Lwip_file_handle &handle,
-		                 char *dst, file_size count,
-		                 file_size &out_count) override
+		Read_result read(Lwip_file_handle &handle, Byte_range_ptr const &dst,
+		                 size_t &out_count) override
 		{
 			switch (handle.kind) {
 
@@ -1322,24 +1349,10 @@ class Lwip::Tcp_socket_dir final :
 							: Read_result::READ_OK;
 					}
 
-					u16_t const ucount = count;
-					u16_t const n = pbuf_copy_partial(_recv_pbuf, dst, ucount, _recv_off);
-					_recv_off += n;
-					{
-						u16_t new_off;
-						pbuf *new_head = pbuf_skip(_recv_pbuf, _recv_off, &new_off);
-						if (new_head != NULL && new_head != _recv_pbuf) {
-							/* increment the references on the new head */
-							pbuf_ref(new_head);
-							/* free the buffers chained to the old head */
-							pbuf_free(_recv_pbuf);
-						}
+					u16_t const ucount = min(dst.num_bytes, (file_size)0xffff);
+					u16_t const n = pbuf_copy_partial(_recv_pbuf, dst.start, ucount, 0);
 
-						if (!new_head)
-							pbuf_free(_recv_pbuf);
-						_recv_pbuf = new_head;
-						_recv_off = new_off;
-					}
+					_recv_pbuf = pbuf_free_header(_recv_pbuf, n);
 
 					/* ACK the remote */
 					if (_pcb)
@@ -1355,19 +1368,19 @@ class Lwip::Tcp_socket_dir final :
 
 			case Lwip_file_handle::PEEK:
 				if (_recv_pbuf != nullptr) {
-					u16_t const ucount = count;
-					u16_t const n = pbuf_copy_partial(_recv_pbuf, dst, ucount, _recv_off);
+					u16_t const ucount = min(dst.num_bytes, 0xffffUL);
+					u16_t const n = pbuf_copy_partial(_recv_pbuf, dst.start, ucount, 0);
 					out_count = n;
 				}
 				return Read_result::READ_OK;
 
 			case Lwip_file_handle::REMOTE:
 				if (state == READY) {
-					if (count < ENDPOINT_STRLEN_MAX)
+					if (dst.num_bytes < ENDPOINT_STRLEN_MAX)
 						return Read_result::READ_ERR_INVALID;
 					char const *ip_str = ipaddr_ntoa(&_pcb->remote_ip);
 					/* TODO: [IPv6]:port */
-					out_count = Genode::snprintf(dst, count, "%s:%d\n",
+					out_count = Format::snprintf(dst.start, dst.num_bytes, "%s:%d\n",
 					                             ip_str, _pcb->remote_port);
 					return Read_result::READ_OK;
 				} else {
@@ -1393,7 +1406,11 @@ class Lwip::Tcp_socket_dir final :
 
 					handle.kind = Lwip_file_handle::LOCATION;
 					/* read the location of the new socket directory */
+<<<<<<< HEAD
 					Read_result result = handle.read(dst, count, out_count);
+=======
+					Read_result result = handle.read(dst, out_count);
+>>>>>>> origin/master
 
 					return result;
 				}
@@ -1405,8 +1422,8 @@ class Lwip::Tcp_socket_dir final :
 				/*
 				 * Print the location of this socket directory
 				 */
-				out_count = Genode::snprintf(
-					dst, count, "tcp/%s\n", name().string());
+				out_count = Format::snprintf(dst.start, dst.num_bytes, "tcp/%s\n",
+				                             name().string());
 				return Read_result::READ_OK;
 				break;
 
@@ -1418,20 +1435,19 @@ class Lwip::Tcp_socket_dir final :
 				for (Pcb_pending *p = _pcb_pending.first(); p; p = p->next())
 					++pending_count;
 
-				out_count = Genode::snprintf(
-					dst, count, "%d\n", pending_count);
+				out_count = Format::snprintf(dst.start, dst.num_bytes, "%d\n", pending_count);
 				return Read_result::READ_OK;
 			}
 
 			case Lwip_file_handle::LOCAL:
 			case Lwip_file_handle::BIND:
 				if (state != CLOSED) {
-					if (count < ENDPOINT_STRLEN_MAX)
+					if (dst.num_bytes < ENDPOINT_STRLEN_MAX)
 						return Read_result::READ_ERR_INVALID;
 					char const *ip_str = ipaddr_ntoa(&_pcb->local_ip);
 					/* TODO: [IPv6]:port */
-					out_count = Genode::snprintf(
-						dst, count, "%s:%d\n", ip_str, _pcb->local_port);
+					out_count = Format::snprintf(dst.start, dst.num_bytes,
+					                             "%s:%d\n", ip_str, _pcb->local_port);
 					return Read_result::READ_OK;
 				}
 				break;
@@ -1439,10 +1455,10 @@ class Lwip::Tcp_socket_dir final :
 			case Lwip_file_handle::CONNECT:
 				switch (state) {
 				case READY:
-					out_count = Genode::snprintf(dst, count, "connected");
+					out_count = Format::snprintf(dst.start, dst.num_bytes, "connected");
 					break;
 				default:
-					out_count = Genode::snprintf(dst, count, "connection refused");
+					out_count = Format::snprintf(dst.start, dst.num_bytes, "connection refused");
 					break;
 				}
 				return Read_result::READ_OK;
@@ -1477,9 +1493,14 @@ class Lwip::Tcp_socket_dir final :
 			return false;
 		}
 
+<<<<<<< HEAD
 		Write_result write(Lwip_file_handle &handle,
 		                   char const *src, file_size count,
 		                   file_size &out_count) override
+=======
+		Write_result write(Lwip_file_handle &handle, Const_byte_range_ptr const &src,
+		                   size_t &out_count) override
+>>>>>>> origin/master
 		{
 			if (_pcb == NULL) {
 				/* socket is closed */
@@ -1489,8 +1510,11 @@ class Lwip::Tcp_socket_dir final :
 			switch (handle.kind) {
 			case Lwip_file_handle::DATA:
 				if (state == READY) {
-					Write_result res = Write_result::WRITE_ERR_WOULD_BLOCK;
-					file_size out = 0;
+					Write_result res     = Write_result::WRITE_ERR_WOULD_BLOCK;
+					size_t       out     = 0;
+					size_t       count   = src.num_bytes;
+					char const  *src_ptr = src.start;
+
 					/*
 					 * write in a loop to account for LwIP chunking
 					 * and the availability of send buffer
@@ -1499,16 +1523,17 @@ class Lwip::Tcp_socket_dir final :
 						u16_t n = min(count, tcp_sndbuf(_pcb));
 
 						/* queue data to outgoing TCP buffer */
-						err_t err = tcp_write(_pcb, src, n, TCP_WRITE_FLAG_COPY);
+						err_t err = tcp_write(_pcb, src_ptr, n, TCP_WRITE_FLAG_COPY);
 						if (err != ERR_OK) {
 							Genode::error("lwIP: tcp_write failed, error ", (int)-err);
 							res = Write_result::WRITE_ERR_IO;
 							break;
 						}
 
-						count -= n;
-						src += n;
-						out += n;
+						count   -= n;
+						src_ptr += n;
+						out     += n;
+
 						/* pending_ack += n; */
 						res = Write_result::WRITE_OK;
 					}
@@ -1528,12 +1553,12 @@ class Lwip::Tcp_socket_dir final :
 				break;
 
 			case Lwip_file_handle::BIND:
-				if ((state == NEW) && (count < ENDPOINT_STRLEN_MAX)) {
+				if ((state == NEW) && (src.num_bytes < ENDPOINT_STRLEN_MAX)) {
 					char buf[ENDPOINT_STRLEN_MAX];
 					ip_addr_t addr;
 					u16_t port = 0;
 
-					Genode::copy_cstring(buf, src, min(count+1, sizeof(buf)));
+					Genode::copy_cstring(buf, src.start, min(src.num_bytes + 1, sizeof(buf)));
 
 					port = remove_port(buf);
 					if (!ipaddr_aton(buf, &addr))
@@ -1542,19 +1567,19 @@ class Lwip::Tcp_socket_dir final :
 					err_t err = tcp_bind(_pcb, &addr, port);
 					if (err == ERR_OK) {
 						state = BOUND;
-						out_count = count;
+						out_count = src.num_bytes;
 						return Write_result::WRITE_OK;
 					}
 				}
 				break;
 
 			case Lwip_file_handle::CONNECT:
-				if (((state == NEW) || (state == BOUND)) && (count < ENDPOINT_STRLEN_MAX-1)) {
+				if (((state == NEW) || (state == BOUND)) && (src.num_bytes < ENDPOINT_STRLEN_MAX-1)) {
 					char buf[ENDPOINT_STRLEN_MAX];
 					ip_addr_t addr;
 					u16_t port = 0;
 
-					copy_cstring(buf, src, min(count+1, sizeof(buf)));
+					copy_cstring(buf, src.start, min(src.num_bytes + 1, sizeof(buf)));
 					port = remove_port(buf);
 					if (!ipaddr_aton(buf, &addr))
 						break;
@@ -1565,17 +1590,17 @@ class Lwip::Tcp_socket_dir final :
 						return Write_result::WRITE_ERR_IO;
 					}
 					state = CONNECT;
-					out_count = count;
+					out_count = src.num_bytes;
 					return Write_result::WRITE_OK;
 				}
 				break;
 
 			case Lwip_file_handle::LISTEN:
-				if ((state == BOUND) && (count < 11)) {
+				if ((state == BOUND) && (src.num_bytes < 11)) {
 					unsigned long backlog = TCP_DEFAULT_LISTEN_BACKLOG;
 					char buf[12];
 
-					copy_cstring(buf, src, min(count+1, sizeof(buf)));
+					copy_cstring(buf, src.start, min(src.num_bytes + 1, sizeof(buf)));
 					Genode::ascii_to_unsigned(buf, backlog, 10);
 
 					/* this replaces the PCB so set the callbacks again */
@@ -1583,7 +1608,7 @@ class Lwip::Tcp_socket_dir final :
 					tcp_arg(_pcb, this);
 					tcp_accept(_pcb, tcp_accept_callback);
 					state = LISTEN;
-					out_count = count;
+					out_count = src.num_bytes;
 					return Write_result::WRITE_OK;
 				}
 				break;
@@ -1627,7 +1652,7 @@ err_t tcp_connect_callback(void *arg, struct tcp_pcb *pcb, err_t)
 	Lwip::Tcp_socket_dir *socket_dir = static_cast<Lwip::Tcp_socket_dir *>(arg);
 	socket_dir->state = Lwip::Tcp_socket_dir::READY;
 
-	socket_dir->process_io();
+	socket_dir->wakeup_vfs_user();
 	socket_dir->process_read_ready();
 	return ERR_OK;
 }
@@ -1655,16 +1680,18 @@ err_t tcp_recv_callback(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t)
 		return ERR_ABRT;
 	}
 
+	err_t err = ERR_OK;
+
 	Lwip::Tcp_socket_dir *socket_dir = static_cast<Lwip::Tcp_socket_dir *>(arg);
 	if (p == NULL) {
 		socket_dir->shutdown();
 	} else {
-		socket_dir->recv(p);
+		err = socket_dir->recv(p);
 	}
 
-	socket_dir->process_io();
+	socket_dir->wakeup_vfs_user();
 	socket_dir->process_read_ready();
-	return ERR_OK;
+	return err;
 }
 
 
@@ -1705,7 +1732,7 @@ err_t tcp_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t)
 	}
 
 	Lwip::Tcp_socket_dir *socket_dir = static_cast<Lwip::Tcp_socket_dir *>(arg);
-	socket_dir->process_io();
+	socket_dir->wakeup_vfs_user();
 	return ERR_OK;
 }
 
@@ -1765,10 +1792,17 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 		 */
 		struct Vfs_netif : Lwip::Nic_netif
 		{
+<<<<<<< HEAD
 			Vfs::Env::User &_vfs_user;
 
 			Tcp_proto_dir tcp_dir;
 			Udp_proto_dir udp_dir;
+=======
+			Vfs::Env &_vfs_env;
+
+			Tcp_proto_dir tcp_dir { _vfs_env };
+			Udp_proto_dir udp_dir { _vfs_env };
+>>>>>>> origin/master
 
 			Nameserver_registry nameserver_handles { };
 
@@ -1780,8 +1814,12 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 			:
 				Lwip::Nic_netif(vfs_env.env(), vfs_env.alloc(), config,
 				                wakeup_scheduler),
+<<<<<<< HEAD
 				_vfs_user(vfs_env.user()),
 				tcp_dir(vfs_env), udp_dir(vfs_env)
+=======
+				_vfs_env(vfs_env)
+>>>>>>> origin/master
 			{ }
 
 			~Vfs_netif()
@@ -1795,10 +1833,14 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 			 */
 			void status_callback() override
 			{
+<<<<<<< HEAD
 				tcp_dir.notify();
 				udp_dir.notify();
 
 				_vfs_user.wakeup_vfs_user();
+=======
+				_vfs_env.user().wakeup_vfs_user();
+>>>>>>> origin/master
 			}
 
 		} _netif;
@@ -1859,7 +1901,7 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 		 ** Lwip::Directory **
 		 *********************/
 
-		Read_result readdir(char *, file_size, file_size &) override
+		Read_result readdir(Byte_range_ptr const &, size_t &) override
 		{
 			Genode::warning(__func__, " NOT_IMPLEMENTED");
 			return Read_result::READ_ERR_INVALID;
@@ -2022,9 +2064,8 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 		 ** File I/O service interface **
 		 ********************************/
 
-		Write_result write(Vfs_handle *vfs_handle,
-		                   char const *src, file_size count,
-		                   file_size &out_count) override
+		Write_result write(Vfs_handle *vfs_handle, Const_byte_range_ptr const &src,
+		                   size_t &out_count) override
 		{
 			out_count = 0;
 
@@ -2032,20 +2073,24 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 				return Write_result::WRITE_ERR_INVALID;
 
 			if (Lwip_handle *handle = dynamic_cast<Lwip_handle*>(vfs_handle))
+<<<<<<< HEAD
 				return handle->write(src, count, out_count);
+=======
+				return handle->write(src, out_count);
+>>>>>>> origin/master
 
 			return Write_result::WRITE_ERR_INVALID;
 		}
 
-		Read_result complete_read(Vfs_handle *vfs_handle,
-		                                  char *dst, file_size count,
-		                                  file_size &out_count) override
+		Read_result complete_read(Vfs_handle *vfs_handle, Byte_range_ptr const &dst,
+		                          size_t &out_count) override
 		{
 			/*
 			 * LwIP buffer operations are limited to sizes that
 			 * can be expressed in sixteen bits
 			 */
-			count = Genode::min(count, 0xffffU);
+			Byte_range_ptr const
+				clipped_dst { dst.start, Genode::min(dst.num_bytes, 0xffffU) };
 
 			out_count = 0;
 
@@ -2055,14 +2100,18 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 			}
 
 			if (Lwip_handle *handle = dynamic_cast<Lwip_handle*>(vfs_handle))
-				return handle->read(dst, count, out_count);
+				return handle->read(clipped_dst, out_count);
 			return Read_result::READ_ERR_INVALID;
 		}
 
 		/**
 		 * All reads are unavailable while the network is down
 		 */
+<<<<<<< HEAD
 		bool queue_read(Vfs_handle *, file_size) override
+=======
+		bool queue_read(Vfs_handle *, size_t) override
+>>>>>>> origin/master
 		{
 			if (_netif.ready())
 				return true;

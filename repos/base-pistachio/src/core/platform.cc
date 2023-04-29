@@ -12,7 +12,6 @@
  */
 
 /* Genode includes */
-#include <base/log.h>
 #include <base/allocator_avl.h>
 #include <base/sleep.h>
 #include <base/capability.h>
@@ -37,7 +36,7 @@
 #include <kip.h>
 #include <print_l4_thread_id.h>
 
-using namespace Genode;
+using namespace Core;
 
 
 static const bool verbose         = true;
@@ -261,7 +260,7 @@ struct Region
 		return (((base + size) > start) && (base < end));
 	}
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		size_t const size = end - start;
 		Genode::print(out, Hex_range<addr_t>(start, size), " ",
@@ -486,9 +485,6 @@ void Platform::_setup_basics()
 
 	dump_kip_memdesc(kip);
 
-	/* add KIP as ROM module */
-	_rom_fs.insert(&_kip_rom);
-
 	L4_Fpage_t bipage = L4_Sigma0_GetPage(get_sigma0(),
 	                                      L4_Fpage(kip->BootInfo,
 	                                      get_page_size()));
@@ -572,8 +568,8 @@ Platform::Platform()
 	_ram_alloc(nullptr), _io_mem_alloc(&core_mem_alloc()),
 	_io_port_alloc(&core_mem_alloc()), _irq_alloc(&core_mem_alloc()),
 	_region_alloc(&core_mem_alloc()),
-	_kip_rom((addr_t)Pistachio::get_kip(),
-	         sizeof(Pistachio::L4_KernelInterfacePage_t), "pistachio_kip")
+	_kip_rom(_rom_fs, "pistachio_kip", (addr_t)Pistachio::get_kip(),
+	         sizeof(Pistachio::L4_KernelInterfacePage_t))
 {
 	/*
 	 * We must be single-threaded at this stage and so this is safe.
@@ -620,8 +616,8 @@ Platform::Platform()
 				memset(core_local_ptr, 0, size);
 				content_fn(core_local_ptr, size);
 
-				_rom_fs.insert(new (core_mem_alloc())
-				               Rom_module(phys_addr, size, rom_name));
+				new (core_mem_alloc())
+					Rom_module(_rom_fs, rom_name, phys_addr, size);
 			},
 			[&] (Range_allocator::Alloc_error) {
 				warning("failed to export ", rom_name, " as ROM module"); }

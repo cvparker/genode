@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2019 Genode Labs GmbH
+ * Copyright (C) 2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -22,8 +22,7 @@
 #include <trace_session/connection.h>
 #include <trace/trace_buffer.h>
 
-#include "directory_tree.h"
-
+#include "directory_dictionary.h"
 
 namespace Vfs_trace {
 
@@ -122,16 +121,15 @@ class Vfs_trace::Trace_buffer_file_system : public Single_file_system
 			: Single_vfs_handle(ds, fs, alloc, 0), _entries(entries)
 			{ }
 
-			Read_result read(char *dst, file_size count,
-			                 file_size &out_count) override
+			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
 				out_count = 0;
 				_entries.for_each_new_entry([&](Trace::Buffer::Entry entry) {
-					file_size size = min(count - out_count, entry.length());
-					memcpy(dst + out_count, entry.data(), (size_t)size);
+					size_t const size = min(dst.num_bytes - out_count, entry.length());
+					memcpy(dst.start + out_count, entry.data(), size);
 					out_count += size;
 
-					if (out_count == count)
+					if (out_count == dst.num_bytes)
 						return false;
 
 					return true;
@@ -140,8 +138,7 @@ class Vfs_trace::Trace_buffer_file_system : public Single_file_system
 				return READ_OK;
 			}
 
-			Write_result write(char const *, file_size,
-			                   file_size &out_count) override
+			Write_result write(Const_byte_range_ptr const &, size_t &out_count) override
 			{
 				out_count = 0;
 				return WRITE_ERR_INVALID;
@@ -351,7 +348,7 @@ struct Vfs_trace::Local_factory : File_system_factory
 
 	Trace::Connection  _trace;
 	Trace::Policy_id   _policy_id { 0 };
-	Directory_tree     _tree { _env.alloc() };
+	Trace_directory    _directory { _env.alloc() };
 
 	void _install_null_policy()
 	{
@@ -394,7 +391,7 @@ struct Vfs_trace::Local_factory : File_system_factory
 			if (info.state() == Trace::Subject_info::DEAD)
 				return;
 
-			_tree.insert(info, id);
+			_directory.insert(info, id);
 		});
 
 		_install_null_policy();
@@ -417,11 +414,11 @@ class Vfs_trace::File_system : private Local_factory,
 
 		typedef String<512*1024> Config;
 
-		static char const *_config(Vfs::Env &vfs_env, Directory_tree &tree)
+		static char const *_config(Vfs::Env &vfs_env, Trace_directory &directory)
 		{
 			char *buf = (char *)vfs_env.alloc().alloc(Config::capacity());
 			Xml_generator xml(buf, Config::capacity(), "node", [&] () {
-				tree.xml(xml);
+				directory.xml(xml);
 			});
 
 			return buf;
@@ -431,7 +428,7 @@ class Vfs_trace::File_system : private Local_factory,
 
 		File_system(Vfs::Env &vfs_env, Genode::Xml_node node)
 		: Local_factory(vfs_env, node),
-			Vfs::Dir_file_system(vfs_env, Xml_node(_config(vfs_env, _tree)), *this)
+			Vfs::Dir_file_system(vfs_env, Xml_node(_config(vfs_env, _directory)), *this)
 		{ }
 
 		char const *type() override { return "trace"; }

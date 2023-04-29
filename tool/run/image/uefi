@@ -12,7 +12,7 @@ proc image_uefi_size { } { return [get_cmd_arg --image-uefi_size 0] }
 ##
 # Create uefi image
 #
-proc run_image { {unused ""} } {
+proc run_image { } {
 
 	set run_size [expr [regsub {\s.*} [exec du -smL [run_dir]] {}]]
 
@@ -38,4 +38,16 @@ proc run_image { {unused ""} } {
 	exec [installed_command sgdisk] --set-alignment=1 --largest-new=1 --typecode=1:EF00 [run_dir].img
 
 	exec rm -f [run_dir].header [run_dir].partition
+}
+
+
+proc install_uefi_bootloader_to_run_dir { } {
+	exec mkdir -p [run_dir]/efi/boot
+	exec cp [get_grub2_dir]/boot/grub2/grub2_32.efi [run_dir]/efi/boot/bootia32.efi
+	exec cp [get_grub2_dir]/boot/grub2/grub2_64.efi [run_dir]/efi/boot/bootx64.efi
+	exec mkdir -p [run_dir]/boot/grub
+	exec cp [genode_dir]/tool/boot/bender [run_dir]/boot/bender
+
+	exec cp [genode_dir]/tool/boot/boot.png [run_dir]/boot/boot.png
+	exec cp [get_grub2_dir]/boot/font.pf2   [run_dir]/boot/font.pf2
 }

@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (C) 2015-2018 Genode Labs GmbH
+ * Copyright (C) 2015-2022 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -31,10 +31,10 @@ extern "C" Genode::addr_t __initial_ax;
 extern "C" Genode::addr_t __initial_bx;
 
 /* pointer to stack base */
-extern "C" Genode::addr_t __bootstrap_stack;
+extern "C" Genode::addr_t bootstrap_stack;
 
 /* number of booted CPUs */
-extern "C" Genode::addr_t __cpus_booted;
+extern "C" Genode::addr_t volatile __cpus_booted;
 
 /* stack size per CPU */
 extern "C" Genode::addr_t const bootstrap_stack_size;
@@ -64,6 +64,31 @@ static Hw::Acpi_rsdp search_rsdp(addr_t area, addr_t area_size)
 }
 
 
+static Genode::uint8_t apic_id()
+{
+	X86_64_CPUID_REGISTER(Cpuid_1_ebx, 1, ebx,
+		struct Apic_id : Bitfield<24, 8> { };
+	);
+
+	return uint8_t(Cpuid_1_ebx::Apic_id::get(Cpuid_1_ebx::read()));
+}
+
+
+unsigned apic_to_cpu_id(Genode::uint8_t apic_id, Genode::uint8_t dense_id)
+{
+	static Genode::uint8_t cpu_id[256] { };
+	static bool            valid [256] { };
+
+	/* if apic_id is valid, return stored cpu_id and ignore new dense_id */
+	if (!valid[apic_id]) {
+		cpu_id[apic_id] = dense_id;
+		valid [apic_id] = true;
+	}
+
+	return cpu_id[apic_id];
+}
+
+
 Bootstrap::Platform::Board::Board()
 :
 	core_mmio(Memory_region { 0, 0x1000 },
@@ -86,6 +111,31 @@ Bootstrap::Platform::Board::Board()
 			base  = get_page_size();
 			size -= get_page_size();
 		}
+
+		/* exclude AP boot code page from normal RAM allocator */
+		if (base <= AP_BOOT_CODE_PAGE && AP_BOOT_CODE_PAGE < base + size) {
+			if (AP_BOOT_CODE_PAGE - base)
+				early_ram_regions.add(Memory_region { base,
+				                                      AP_BOOT_CODE_PAGE - base });
+
+			size -= AP_BOOT_CODE_PAGE - base;
+			size -= (get_page_size() > size) ? size : get_page_size();
+			base  = AP_BOOT_CODE_PAGE + get_page_size();
+		}
+
+		/* skip partial 4k pages (seen with Qemu with ahci model enabled) */
+		if (!aligned(base, 12)) {
+			auto new_base = align_addr(base, 12);
+			size -= (new_base - base > size) ? size : new_base - base;
+			base  = new_base;
+		}
+
+		/* remove partial 4k pages */
+		if (!aligned(size, 12))
+			size -= size & 0xffful;
+
+		if (!size)
+			return;
 
 		if (base >= initial_map_max) {
 			late_ram_regions.add(Memory_region { base, size });
@@ -170,43 +220,41 @@ Bootstrap::Platform::Board::Board()
 		uint64_t const table_addr = acpi_rsdp.xsdt ? acpi_rsdp.xsdt : acpi_rsdp.rsdt;
 
 		if (table_addr) {
-			Hw::Acpi_generic * table = reinterpret_cast<Hw::Acpi_generic *>(table_addr);
+			auto rsdt_xsdt_lambda = [&](auto paddr_table) {
+				addr_t const table_virt_addr = paddr_table;
+				Hw::Acpi_generic * table = reinterpret_cast<Hw::Acpi_generic *>(table_virt_addr);
+
+				if (!memcmp(table->signature, "FACP", 4)) {
+					info.acpi_fadt = addr_t(table);
+
+					Hw::Acpi_fadt fadt(table);
+					Hw::Acpi_facs facs(fadt.facs());
+					facs.wakeup_vector(AP_BOOT_CODE_PAGE);
+
+					auto mem_aligned = paddr_table & _align_mask(12);
+					auto mem_size    = align_addr(paddr_table + table->size, 12) - mem_aligned;
+					core_mmio.add({ mem_aligned, mem_size });
+				}
+
+				if (memcmp(table->signature, "APIC", 4))
+					return;
+
+				Hw::for_each_apic_struct(*table,[&](Hw::Apic_madt const *e){
+					if (e->type == Hw::Apic_madt::LAPIC) {
+						Hw::Apic_madt::Lapic lapic(e);
+
+						/* check if APIC is enabled in hardware */
+						if (lapic.valid())
+							cpus ++;
+					}
+				});
+			};
+
+			auto table = reinterpret_cast<Hw::Acpi_generic *>(table_addr);
 			if (!memcmp(table->signature, "RSDT", 4)) {
-				Hw::for_each_rsdt_entry(*table, [&](uint32_t paddr_table) {
-					addr_t const table_virt_addr = paddr_table;
-					Hw::Acpi_generic * table = reinterpret_cast<Hw::Acpi_generic *>(table_virt_addr);
-
-					if (memcmp(table->signature, "APIC", 4))
-						return;
-
-					Hw::for_each_apic_struct(*table,[&](Hw::Apic_madt const *e){
-						if (e->type == Hw::Apic_madt::LAPIC) {
-							Hw::Apic_madt::Lapic lapic(e);
-
-							/* check if APIC is enabled in hardware */
-							if (lapic.valid())
-								cpus ++;
-						}
-					});
-				});
+				Hw::for_each_rsdt_entry(*table, rsdt_xsdt_lambda);
 			} else if (!memcmp(table->signature, "XSDT", 4)) {
-				Hw::for_each_xsdt_entry(*table, [&](uint64_t paddr_table) {
-					addr_t const table_virt_addr = paddr_table;
-					Hw::Acpi_generic * table = reinterpret_cast<Hw::Acpi_generic *>(table_virt_addr);
-
-					if (memcmp(table->signature, "APIC", 4))
-						return;
-
-					Hw::for_each_apic_struct(*table,[&](Hw::Apic_madt const *e){
-						if (e->type == Hw::Apic_madt::LAPIC) {
-							Hw::Apic_madt::Lapic lapic(e);
-
-							/* check if APIC is enabled in hardware */
-							if (lapic.valid())
-								cpus ++;
-						}
-					});
-				});
+				Hw::for_each_xsdt_entry(*table, rsdt_xsdt_lambda);
 			}
 		}
 	}
@@ -218,11 +266,9 @@ Bootstrap::Platform::Board::Board()
 		cpus = !cpus ? 1 : max_cpus;
 	}
 
-	if (cpus > 1) {
-		/* copy 16 bit boot code for AP CPUs */
-		addr_t ap_code_size = (addr_t)&_start - (addr_t)&_ap;
-		memcpy((void *)AP_BOOT_CODE_PAGE, &_ap, ap_code_size);
-	}
+	/* copy 16 bit boot code for AP CPUs and for ACPI resume */
+	addr_t ap_code_size = (addr_t)&_start - (addr_t)&_ap;
+	memcpy((void *)AP_BOOT_CODE_PAGE, &_ap, ap_code_size);
 }
 
 
@@ -296,24 +342,31 @@ unsigned Bootstrap::Platform::enable_mmu()
 
 	Cpu::Cr3::write(Cpu::Cr3::Pdb::masked((addr_t)core_pd->table_base));
 
-	addr_t const stack_base = reinterpret_cast<addr_t>(&__bootstrap_stack);
+	addr_t const stack_base = reinterpret_cast<addr_t>(&bootstrap_stack);
 	addr_t const this_stack = reinterpret_cast<addr_t>(&stack_base);
-	addr_t const cpu_id     = (this_stack - stack_base) / bootstrap_stack_size;
+	addr_t const stack_id   = (this_stack - stack_base) / bootstrap_stack_size;
+
+	/* determine dense packed cpu_id based on apic_id */
+	auto const cpu_id = apic_to_cpu_id(apic_id(), uint8_t(stack_id));
 
 	/* we like to use local APIC */
 	Cpu::IA32_apic_base::access_t lapic_msr = Cpu::IA32_apic_base::read();
 	Cpu::IA32_apic_base::Lapic::set(lapic_msr);
 	Cpu::IA32_apic_base::write(lapic_msr);
 
-	/* skip the SMP when ACPI parsing did not reveal the number of CPUs */
-	if (board.cpus <= 1)
-		return (unsigned)cpu_id;
-
 	Lapic lapic(board.core_mmio.virt_addr(Hw::Cpu_memory_map::lapic_phys_base()));
 
 	/* enable local APIC if required */
 	if (!lapic.read<Lapic::Svr::APIC_enable>())
 		lapic.write<Lapic::Svr::APIC_enable>(true);
+
+	/* reset assembly counter (crt0.s) by last booted CPU, required for resume */
+	if (__cpus_booted >= board.cpus)
+		__cpus_booted = 0;
+
+	/* skip wakeup IPI for non SMP setups */
+	if (board.cpus <= 1)
+		return (unsigned)cpu_id;
 
 	if (!Cpu::IA32_apic_base::Bsp::get(lapic_msr))
 		/* AP - done */

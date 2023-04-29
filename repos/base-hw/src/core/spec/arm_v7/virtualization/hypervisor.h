@@ -14,7 +14,8 @@
 #ifndef _SPEC__ARM_V7__VIRTUALIZATION_HYPERVISOR_H_
 #define _SPEC__ARM_V7__VIRTUALIZATION_HYPERVISOR_H_
 
-#include <base/stdint.h>
+/* core includes */
+#include <types.h>
 #include <cpu/vm_state_virtualization.h>
 
 namespace Hypervisor {
@@ -38,12 +39,12 @@ namespace Hypervisor {
 	inline void invalidate_tlb(Genode::uint64_t vttbr)
 	{
 		hypervisor_call(TLB_INVALIDATE,
-		                (vttbr & 0xffffffff),
-		                ((vttbr >> 32U) & 0xffffffff));
+		                (Call_arg)vttbr,
+		                (Call_arg)(vttbr >> 32U));
 	}
 
 
-	inline void switch_world(Genode::Vm_state & vm_state,
+	inline void switch_world(Core::Vm_state & vm_state,
 	                         Host_context     & host_state)
 	{
 		hypervisor_call(WORLD_SWITCH,

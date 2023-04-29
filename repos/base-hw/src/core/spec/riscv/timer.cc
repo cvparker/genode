@@ -11,7 +11,7 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* Core includes */
+/* core includes */
 #include <kernel/timer.h>
 #include <platform.h>
 #include <hw/spec/riscv/sbi.h>
@@ -21,6 +21,12 @@ using namespace Kernel;
 
 
 Board::Timer::Timer(unsigned)
+{
+	init();
+}
+
+
+void Board::Timer::init()
 {
 	/* enable timer interrupt */
 	enum { STIE = 0x20 };

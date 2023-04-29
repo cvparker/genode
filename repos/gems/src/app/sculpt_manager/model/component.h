@@ -17,22 +17,26 @@
 #include <types.h>
 #include <model/route.h>
 #include <depot/archive.h>
+#include <depot_query.h>
 
 namespace Sculpt { struct Component; }
 
 
 struct Sculpt::Component : Noncopyable
 {
-	Route::Update_policy _route_update_policy;
-
 	typedef Depot::Archive::Path Path;
 	typedef Depot::Archive::Name Name;
 	typedef String<100>          Info;
 	typedef Start_name           Service;
 
+	Allocator &_alloc;
+
 	/* defined at construction time */
-	Path const path;
-	Info const info;
+	Name   const name;
+	Path   const path;
+	Verify const verify;
+	Info   const info;
+
 
 	/* defined when blueprint arrives */
 	uint64_t ram  { };
@@ -44,28 +48,106 @@ struct Sculpt::Component : Noncopyable
 	                                          affinity_space.height() };
 	Priority priority = Priority::DEFAULT;
 
-	bool blueprint_known = false;
+	struct Blueprint_info
+	{
+		bool known;
+		bool pkg_avail;
+		bool content_complete;
+
+		bool uninstalled()     const { return known && !pkg_avail; }
+		bool ready_to_deploy() const { return known && pkg_avail &&  content_complete; }
+		bool incomplete()      const { return known && pkg_avail && !content_complete; }
+	};
+
+	Blueprint_info blueprint_info { };
 
 	List_model<Route> routes   { };
 	Route             pd_route { "<pd/>" };
 
-	Component(Allocator &alloc, Path const &path, Info const &info,
-	          Affinity::Space const space)
+	void _update_routes_from_xml(Xml_node const &node)
+	{
+		update_list_model_from_xml(routes, node,
+
+			/* create */
+			[&] (Xml_node const &route) -> Route & {
+				return *new (_alloc) Route(route); },
+
+			/* destroy */
+			[&] (Route &e) { destroy(_alloc, &e); },
+
+			/* update */
+			[&] (Route &, Xml_node) { }
+		);
+	}
+
+	struct Construction_info : Interface
+	{
+		struct With : Interface { virtual void with(Component const &) const = 0; };
+
+		virtual void _with_construction(With const &) const = 0;
+
+		template <typename FN>
+		void with_construction(FN const &fn) const
+		{
+			struct _With : With {
+				FN const &_fn;
+				_With(FN const &fn) : _fn(fn) { }
+				void with(Component const &c) const override { _fn(c); }
+			};
+			_with_construction(_With(fn));
+		}
+	};
+
+	struct Construction_action : Interface
+	{
+		virtual void new_construction(Path const &pkg, Verify, Info const &) = 0;
+
+		struct Apply_to : Interface { virtual void apply_to(Component &) = 0; };
+
+		virtual void _apply_to_construction(Apply_to &) = 0;
+
+		template <typename FN>
+		void apply_to_construction(FN const &fn)
+		{
+			struct _Apply_to : Apply_to {
+				FN const &_fn;
+				_Apply_to(FN const &fn) : _fn(fn) { }
+				void apply_to(Component &c) override { _fn(c); }
+			} apply_fn(fn);
+
+			_apply_to_construction(apply_fn);
+		}
+
+		virtual void discard_construction() = 0;
+		virtual void launch_construction() = 0;
+		virtual void trigger_pkg_download() = 0;
+	};
+
+	Component(Allocator &alloc, Name const &name, Path const &path,
+	          Verify verify, Info const &info, Affinity::Space const space)
 	:
-		_route_update_policy(alloc), path(path), info(info), affinity_space(space)
+		_alloc(alloc), name(name), path(path), verify(verify), info(info),
+		affinity_space(space)
 	{ }
 
 	~Component()
 	{
-		routes.update_from_xml(_route_update_policy, Xml_node("<empty/>"));
+		_update_routes_from_xml(Xml_node("<empty/>"));
 	}
 
 	void try_apply_blueprint(Xml_node blueprint)
 	{
-		blueprint.for_each_sub_node("pkg", [&] (Xml_node pkg) {
+		blueprint_info = { };
+
+		blueprint.for_each_sub_node([&] (Xml_node pkg) {
 
 			if (path != pkg.attribute_value("path", Path()))
 				return;
+
+			if (pkg.has_type("missing")) {
+				blueprint_info.known = true;
+				return;
+			}
 
 			pkg.with_optional_sub_node("runtime", [&] (Xml_node runtime) {
 
@@ -73,10 +155,14 @@ struct Sculpt::Component : Noncopyable
 				caps = runtime.attribute_value("caps", 0UL);
 
 				runtime.with_optional_sub_node("requires", [&] (Xml_node requires) {
-					routes.update_from_xml(_route_update_policy, requires); });
+					_update_routes_from_xml(requires); });
 			});
 
-			blueprint_known = true;
+			blueprint_info = {
+				.known            = true,
+				.pkg_avail        = !blueprint_missing(blueprint, path),
+				.content_complete = !blueprint_rom_missing(blueprint, path)
+			};
 		});
 	}
 

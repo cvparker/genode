@@ -159,7 +159,7 @@ Tlb_invalidation::Tlb_invalidation(Inter_processor_work_list &global_work_list,
 }
 
 
-Thread::Destroy::Destroy(Thread & caller, Genode::Kernel_object<Thread> & to_delete)
+Thread::Destroy::Destroy(Thread & caller, Core::Kernel_object<Thread> & to_delete)
 :
 	caller(caller), thread_to_destroy(to_delete)
 {
@@ -169,7 +169,7 @@ Thread::Destroy::Destroy(Thread & caller, Genode::Kernel_object<Thread> & to_del
 
 
 void
-Thread::Destroy::execute()
+Thread::Destroy::execute(Cpu &)
 {
 	thread_to_destroy->_cpu->work_list().remove(&_le);
 	thread_to_destroy.destruct();
@@ -295,15 +295,18 @@ void Thread::_become_inactive(State const s)
 void Thread::_die() { _become_inactive(DEAD); }
 
 
-Cpu_job * Thread::helping_sink() {
-	return &_ipc_node.helping_sink(); }
+Cpu_job * Thread::helping_destination() {
+	return &_ipc_node.helping_destination(); }
 
 
 size_t Thread::_core_to_kernel_quota(size_t const quota) const
 {
 	using Genode::Cpu_session;
-	using Genode::sizet_arithm_t;
-	size_t const ticks = _cpu->timer().us_to_ticks(Kernel::cpu_quota_us);
+	using Core::sizet_arithm_t;
+
+	/* we assert at timer construction that cpu_quota_us in ticks fits size_t */
+	size_t const ticks = (size_t)
+		_cpu->timer().us_to_ticks(Kernel::cpu_quota_us);
 	return Cpu_session::quota_lim_downscale<sizet_arithm_t>(quota, ticks);
 }
 
@@ -442,8 +445,8 @@ void Thread::_call_yield_thread()
 
 void Thread::_call_delete_thread()
 {
-	Genode::Kernel_object<Thread> & to_delete =
-		*(Genode::Kernel_object<Thread>*)user_arg_1();
+	Core::Kernel_object<Thread> & to_delete =
+		*(Core::Kernel_object<Thread>*)user_arg_1();
 
 	/**
 	 * Delete a thread immediately if it has no cpu assigned yet,
@@ -466,8 +469,8 @@ void Thread::_call_delete_thread()
 
 void Thread::_call_delete_pd()
 {
-	Genode::Kernel_object<Pd> & pd =
-		*(Genode::Kernel_object<Pd>*)user_arg_1();
+	Core::Kernel_object<Pd> & pd =
+		*(Core::Kernel_object<Pd>*)user_arg_1();
 
 	if (_cpu->active(pd->mmu_regs))
 		_cpu->switch_to(_core_pd.mmu_regs);
@@ -478,17 +481,17 @@ void Thread::_call_delete_pd()
 
 void Thread::_call_await_request_msg()
 {
-	if (_ipc_node.can_await_request()) {
+	if (_ipc_node.ready_to_wait()) {
 		_ipc_alloc_recv_caps((unsigned)user_arg_1());
-		_ipc_node.await_request();
-		if (_ipc_node.awaits_request()) {
+		_ipc_node.wait();
+		if (_ipc_node.waiting()) {
 			_become_inactive(AWAITS_IPC);
 		} else {
 			user_arg_0(0);
 		}
 	} else {
-		Genode::raw("IPC await request: bad state");
-		user_arg_0(0);
+		Genode::raw("IPC await request: bad state, will block");
+		_become_inactive(DEAD);
 	}
 }
 
@@ -533,18 +536,18 @@ void Thread::_call_send_request_msg()
 	if (!dst) {
 		Genode::raw(*this, ": cannot send to unknown recipient ",
 		                 (unsigned)user_arg_1());
-		_become_inactive(AWAITS_IPC);
+		_become_inactive(DEAD);
 		return;
 	}
 	bool const help = Cpu_job::_helping_possible(*dst);
 	oir = oir->find(dst->pd());
 
-	if (!_ipc_node.can_send_request()) {
+	if (!_ipc_node.ready_to_send()) {
 		Genode::raw("IPC send request: bad state");
 	} else {
 		_ipc_alloc_recv_caps((unsigned)user_arg_2());
 		_ipc_capid    = oir ? oir->capid() : cap_id_invalid();
-		_ipc_node.send_request(dst->_ipc_node, help);
+		_ipc_node.send(dst->_ipc_node, help);
 	}
 
 	_state = AWAITS_IPC;
@@ -554,7 +557,7 @@ void Thread::_call_send_request_msg()
 
 void Thread::_call_send_reply_msg()
 {
-	_ipc_node.send_reply();
+	_ipc_node.reply();
 	bool const await_request_msg = user_arg_2();
 	if (await_request_msg) { _call_await_request_msg(); }
 	else { user_arg_0(0); }
@@ -848,8 +851,8 @@ void Thread::_call()
 	case call_id_thread_pager():           _call_pager(); return;
 	case call_id_invalidate_tlb():         _call_invalidate_tlb(); return;
 	case call_id_new_pd():
-		_call_new<Pd>(*(Hw::Page_table *)      user_arg_2(),
-		              *(Genode::Platform_pd *) user_arg_3(),
+		_call_new<Pd>(*(Hw::Page_table *)    user_arg_2(),
+		              *(Core::Platform_pd *) user_arg_3(),
 		              _addr_space_id_alloc);
 		return;
 	case call_id_delete_pd():              _call_delete_pd(); return;
@@ -867,6 +870,7 @@ void Thread::_call()
 	case call_id_ack_irq():                _call_ack_irq(); return;
 	case call_id_new_obj():                _call_new_obj(); return;
 	case call_id_delete_obj():             _call_delete_obj(); return;
+	case call_id_suspend():                _call_suspend(); return;
 	default:
 		Genode::raw(*this, ": unknown kernel call");
 		_die();
@@ -947,11 +951,11 @@ Core_main_thread(Board::Address_space_id_allocator &addr_space_id_alloc,
 	Core_object<Thread>(
 		core_pd, addr_space_id_alloc, user_irq_pool, cpu_pool, core_pd, "core")
 {
-	using namespace Genode;
+	using namespace Core;
 
-	Genode::map_local(Platform::core_phys_addr((addr_t)&_utcb_instance),
-	                  (addr_t)utcb_main_thread(),
-	                  sizeof(Native_utcb) / get_page_size());
+	map_local(Platform::core_phys_addr((addr_t)&_utcb_instance),
+	          (addr_t)utcb_main_thread(),
+	          sizeof(Native_utcb) / get_page_size());
 
 	_utcb_instance.cap_add(core_capid());
 	_utcb_instance.cap_add(cap_id_invalid());

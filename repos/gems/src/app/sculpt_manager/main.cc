@@ -35,10 +35,12 @@
 #include <model/child_exit_state.h>
 #include <model/file_operation_queue.h>
 #include <model/settings.h>
+#include <model/presets.h>
 #include <view/download_status.h>
 #include <view/popup_dialog.h>
 #include <view/panel_dialog.h>
 #include <view/settings_dialog.h>
+#include <view/system_dialog.h>
 #include <view/file_browser_dialog.h>
 #include <menu_view.h>
 #include <gui.h>
@@ -60,6 +62,9 @@ struct Sculpt::Main : Input_event_handler,
                       Panel_dialog::Action,
                       Popup_dialog::Action,
                       Settings_dialog::Action,
+                      Software_presets_dialog::Action,
+                      Depot_users_dialog::Action,
+                      Software_update_dialog::Action,
                       File_browser_dialog::Action,
                       Popup_dialog::Construction_info,
                       Depot_query,
@@ -73,6 +78,9 @@ struct Sculpt::Main : Input_event_handler,
 	Heap _heap { _env.ram(), _env.rm() };
 
 	Sculpt_version const _sculpt_version { _env };
+
+	Build_info const _build_info =
+		Build_info::from_xml(Attached_rom_dataspace(_env, "build_info").xml());
 
 	Registry<Child_state> _child_states { };
 
@@ -209,7 +217,6 @@ struct Sculpt::Main : Input_event_handler,
 		return _prepare_version.value != _prepare_completed.value;
 	}
 
-
 	Storage _storage { _env, _heap, _child_states, *this, *this, *this };
 
 	/**
@@ -222,9 +229,11 @@ struct Sculpt::Main : Input_event_handler,
 		/* trigger loading of the configuration from the sculpt partition */
 		_prepare_version.value++;
 
+		_download_queue.reset();
 		_deploy.restart();
 
 		generate_runtime_config();
+		generate_dialog();
 	}
 
 	Network _network { _env, _heap, *this, _child_states, *this, _runtime_state, _pci_info };
@@ -240,6 +249,7 @@ struct Sculpt::Main : Input_event_handler,
 	void update_network_dialog() override
 	{
 		_network_menu_view.generate();
+		_system_menu_view.generate();
 	}
 
 
@@ -272,12 +282,17 @@ struct Sculpt::Main : Input_event_handler,
 
 	Fs_tool_version _fs_tool_version { 0 };
 
+	Index_update_queue _index_update_queue {
+		_heap, _file_operation_queue, _download_queue };
+
 
 	/*****************
 	 ** Depot query **
 	 *****************/
 
 	Depot_query::Version _query_version { 0 };
+
+	Depot::Archive::User _image_index_user = _build_info.depot_user;
 
 	Expanding_reporter _depot_query_reporter { _env, "query", "depot_query"};
 
@@ -294,6 +309,11 @@ struct Sculpt::Main : Input_event_handler,
 	Timer::One_shot_timeout<Main> _deferred_depot_query_handler {
 		_timer, *this, &Main::_handle_deferred_depot_query };
 
+	bool _system_dialog_watches_depot() const
+	{
+		return _system_visible && _system_dialog.update_tab_selected();
+	}
+
 	void _handle_deferred_depot_query(Duration)
 	{
 		if (_deploy._arch.valid()) {
@@ -302,7 +322,22 @@ struct Sculpt::Main : Input_event_handler,
 				xml.attribute("arch",    _deploy._arch);
 				xml.attribute("version", _query_version.value);
 
-				_popup_dialog.gen_depot_query(xml);
+				if (_popup_dialog.depot_query_needs_users())
+					xml.node("scan", [&] () {
+						xml.attribute("users", "yes"); });
+
+				if (_system_dialog_watches_depot() || _scan_rom.xml().has_type("empty"))
+					xml.node("scan", [&] () {
+						xml.attribute("users", "yes"); });
+
+				if (_system_dialog_watches_depot() || _image_index_rom.xml().has_type("empty"))
+					xml.node("image_index", [&] () {
+						xml.attribute("os",    "sculpt");
+						xml.attribute("board", _build_info.board);
+						xml.attribute("user",  _image_index_user);
+					});
+
+				_popup_dialog.gen_depot_query(xml, _scan_rom.xml());
 
 				/* update query for blueprints of all unconfigured start nodes */
 				_deploy.gen_depot_query(xml);
@@ -364,25 +399,51 @@ struct Sculpt::Main : Input_event_handler,
 
 	Deploy::Prio_levels const _prio_levels { 4 };
 
+	Attached_rom_dataspace _scan_rom { _env, "report -> runtime/depot_query/scan" };
+
+	Signal_handler<Main> _scan_handler { _env.ep(), *this, &Main::_handle_scan };
+
+	void _handle_scan()
+	{
+		_scan_rom.update();
+		_popup_dialog.depot_users_scan_updated();
+		_system_dialog.sanitize_user_selection();
+	}
+
+	Attached_rom_dataspace _image_index_rom { _env, "report -> runtime/depot_query/image_index" };
+
+	Signal_handler<Main> _image_index_handler { _env.ep(), *this, &Main::_handle_image_index };
+
+	void _handle_image_index()
+	{
+		_image_index_rom.update();
+		_system_menu_view.generate();
+	}
+
 	Attached_rom_dataspace _launcher_listing_rom {
 		_env, "report -> /runtime/launcher_query/listing" };
 
 	Launchers _launchers { _heap };
+	Presets   _presets   { _heap };
 
-	Signal_handler<Main> _launcher_listing_handler {
-		_env.ep(), *this, &Main::_handle_launcher_listing };
+	Signal_handler<Main> _launcher_and_preset_listing_handler {
+		_env.ep(), *this, &Main::_handle_launcher_and_preset_listing };
 
-	void _handle_launcher_listing()
+	void _handle_launcher_and_preset_listing()
 	{
 		_launcher_listing_rom.update();
 
-		Xml_node listing = _launcher_listing_rom.xml();
-		if (listing.has_sub_node("dir")) {
-			Xml_node dir = listing.sub_node("dir");
+		Xml_node const listing = _launcher_listing_rom.xml();
+		listing.for_each_sub_node("dir", [&] (Xml_node const &dir) {
 
-			/* let 'update_from_xml' iterate over <file> nodes */
-			_launchers.update_from_xml(dir);
-		}
+			Path const dir_path = dir.attribute_value("path", Path());
+
+			if (dir_path == "/launcher")
+				_launchers.update_from_xml(dir); /* iterate over <file> nodes */
+
+			if (dir_path == "/presets")
+				_presets.update_from_xml(dir);   /* iterate over <file> nodes */
+		});
 
 		_popup_menu_view.generate();
 		_deploy._handle_managed_deploy();
@@ -397,7 +458,8 @@ struct Sculpt::Main : Input_event_handler,
 	{
 		_runtime_state.reset_abandoned_and_launched_children();
 		_manual_deploy_rom.update();
-		_deploy.update_managed_deploy_config(_manual_deploy_rom.xml());
+		_deploy.use_as_deploy_template(_manual_deploy_rom.xml());
+		_deploy.update_managed_deploy_config();
 	}
 
 	Signal_handler<Main> _manual_deploy_handler {
@@ -421,6 +483,7 @@ struct Sculpt::Main : Input_event_handler,
 	bool _log_visible      = false;
 	bool _network_visible  = false;
 	bool _settings_visible = false;
+	bool _system_visible   = false;
 
 	File_browser_state _file_browser_state { };
 
@@ -437,16 +500,23 @@ struct Sculpt::Main : Input_event_handler,
 
 	bool settings_visible() const override { return _settings_visible; }
 
+	bool system_visible() const override { return _system_visible; }
+
 	bool inspect_tab_visible() const override { return _storage.any_file_system_inspected(); }
 
 	Panel_dialog::Tab selected_tab() const override { return _selected_tab; }
 
 	bool settings_available() const override { return _settings.interactive_settings_available(); }
 
+	bool system_available() const override
+	{
+		return _storage._sculpt_partition.valid() && !_prepare_in_progress();
+	}
+
 	/**
 	 * Dialog interface
 	 */
-	Hover_result hover(Xml_node) override;
+	Hover_result hover(Xml_node) override { return Hover_result::UNMODIFIED; }
 
 	void reset() override { }
 
@@ -461,8 +531,8 @@ struct Sculpt::Main : Input_event_handler,
 
 			bool const network_missing = _deploy.update_needed()
 			                         && !_network._nic_state.ready();
-			bool const show_diagnostics =
-				_deploy.any_unsatisfied_child() || network_missing;
+			bool const show_diagnostics = _deploy.any_unsatisfied_child()
+			                           || network_missing;
 
 			auto gen_network_diagnostics = [&] (Xml_generator &xml)
 			{
@@ -498,8 +568,12 @@ struct Sculpt::Main : Input_event_handler,
 			}
 
 			Xml_node const state = _update_state_rom.xml();
-			if (_update_running() && state.attribute_value("progress", false))
-				gen_download_status(xml, state);
+
+			bool const download_in_progress =
+				(_update_running() && state.attribute_value("progress", false));
+
+			if (download_in_progress || _download_queue.any_failed_download())
+				gen_download_status(xml, state, _download_queue);
 		});
 	}
 
@@ -510,6 +584,9 @@ struct Sculpt::Main : Input_event_handler,
 	{
 		_main_menu_view.generate();
 		_graph_menu_view.generate();
+
+		if (_system_visible)
+			_system_menu_view.generate();
 	}
 
 	Attached_rom_dataspace _runtime_state_rom { _env, "report -> runtime/state" };
@@ -595,7 +672,8 @@ struct Sculpt::Main : Input_event_handler,
 		_try_handle_click();
 	}
 
-	Keyboard_focus _keyboard_focus { _env, _network.dialog, _network.wpa_passphrase, *this };
+	Keyboard_focus _keyboard_focus { _env, _network.dialog, _network.wpa_passphrase,
+	                                 *this, _system_dialog, _system_visible };
 
 	Constructible<Input::Seq_number> _clicked_seq_number { };
 	Constructible<Input::Seq_number> _clacked_seq_number { };
@@ -663,6 +741,11 @@ struct Sculpt::Main : Input_event_handler,
 			_settings_menu_view.generate();
 			_clicked_seq_number.destruct();
 		}
+		else if (_system_menu_view.hovered(seq)) {
+			_system_dialog.click();
+			_system_menu_view.generate();
+			_clicked_seq_number.destruct();
+		}
 		else if (_network_menu_view.hovered(seq)) {
 			_network.dialog.click(_network);
 			_network_menu_view.generate();
@@ -683,7 +766,6 @@ struct Sculpt::Main : Input_event_handler,
 		Input::Seq_number const seq = *_clacked_seq_number;
 
 		if (_main_menu_view.hovered(seq)) {
-			_storage.dialog.clack(_storage);
 			_main_menu_view.generate();
 			_clacked_seq_number.destruct();
 		}
@@ -692,17 +774,45 @@ struct Sculpt::Main : Input_event_handler,
 			_graph_menu_view.generate();
 			_clacked_seq_number.destruct();
 		}
+		else if (_system_menu_view.hovered(seq)) {
+			_system_dialog.clack();
+			_system_menu_view.generate();
+			_clacked_seq_number.destruct();
+		}
 		else if (_popup_menu_view.hovered(seq)) {
 			_popup_dialog.clack(*this);
 			_clacked_seq_number.destruct();
 		}
 	}
 
+	bool _keyboard_input_consumed_by_sculpt_manager() const
+	{
+		return (_keyboard_focus.target == Keyboard_focus::WPA_PASSPHRASE)
+		    || (_system_visible && _system_dialog.keyboard_needed());
+	}
+
+	struct Keyboard_focus_guard
+	{
+		Main &_main;
+
+		bool const _orig = _main._keyboard_input_consumed_by_sculpt_manager();
+
+		Keyboard_focus_guard(Main &main) : _main(main) { }
+
+		~Keyboard_focus_guard()
+		{
+			if (_orig != _main._keyboard_input_consumed_by_sculpt_manager())
+				_main._keyboard_focus.update();
+		}
+	};
+
 	/**
 	 * Menu_view::Hover_update_handler interface
 	 */
 	void menu_view_hover_updated() override
 	{
+		Keyboard_focus_guard focus_guard { *this };
+
 		if (_clicked_seq_number.constructed())
 			_try_handle_click();
 
@@ -717,6 +827,8 @@ struct Sculpt::Main : Input_event_handler,
 	{
 		bool need_generate_dialog = false;
 
+		Keyboard_focus_guard focus_guard { *this };
+
 		if (ev.key_press(Input::BTN_LEFT) || ev.touch()) {
 			_clicked_seq_number.construct(_global_input_seq_number);
 			_try_handle_click();
@@ -727,12 +839,14 @@ struct Sculpt::Main : Input_event_handler,
 			_try_handle_clack();
 		}
 
-		if (_keyboard_focus.target == Keyboard_focus::WPA_PASSPHRASE)
-			ev.handle_press([&] (Input::Keycode, Codepoint code) {
-				_network.handle_key_press(code); });
+		ev.handle_press([&] (Input::Keycode, Codepoint code) {
+			if (_keyboard_focus.target == Keyboard_focus::WPA_PASSPHRASE)
+				_network.handle_key_press(code);
+			else if (_system_visible && _system_dialog.keyboard_needed())
+				_system_dialog.handle_key(code);
 
-		if (ev.press())
-			_keyboard_focus.update();
+			need_generate_dialog = true;
+		});
 
 		if (need_generate_dialog)
 			generate_dialog();
@@ -749,7 +863,22 @@ struct Sculpt::Main : Input_event_handler,
 		_panel_menu_view.generate();
 	}
 
-	void use(Storage_target const &target) override { _storage.use(target); }
+	void use(Storage_target const &target) override
+	{
+		_system_dialog.reset_update_dialog();
+		_download_queue.reset();
+		_storage.use(target);
+
+		/* hide system panel button and system dialog when "un-using" */
+		_panel_menu_view.generate();
+		_system_menu_view.generate();
+		_handle_window_layout();
+	}
+
+	void _reset_storage_dialog_operation()
+	{
+		_graph.reset_storage_operation();
+	}
 
 	/*
 	 * Storage_dialog::Action interface
@@ -762,7 +891,7 @@ struct Sculpt::Main : Input_event_handler,
 	void cancel_format(Storage_target const &target) override
 	{
 		_storage.cancel_format(target);
-		_graph.reset_storage_operation();
+		_reset_storage_dialog_operation();
 	}
 
 	void expand(Storage_target const &target) override
@@ -773,7 +902,7 @@ struct Sculpt::Main : Input_event_handler,
 	void cancel_expand(Storage_target const &target) override
 	{
 		_storage.cancel_expand(target);
-		_graph.reset_storage_operation();
+		_reset_storage_dialog_operation();
 	}
 
 	void check(Storage_target const &target) override
@@ -794,7 +923,7 @@ struct Sculpt::Main : Input_event_handler,
 		_runtime_state.abandon(name);
 
 		/* update config/managed/deploy with the component 'name' removed */
-		_deploy.update_managed_deploy_config(_manual_deploy_rom.xml());
+		_deploy.update_managed_deploy_config();
 	}
 
 	/*
@@ -822,7 +951,7 @@ struct Sculpt::Main : Input_event_handler,
 			_runtime_state.restart(name);
 
 			/* update config/managed/deploy with the component 'name' removed */
-			_deploy.update_managed_deploy_config(_manual_deploy_rom.xml());
+			_deploy.update_managed_deploy_config();
 		}
 	}
 
@@ -842,6 +971,66 @@ struct Sculpt::Main : Input_event_handler,
 	{
 		_panel_menu_view.generate();
 		_handle_window_layout();
+	}
+
+	/**
+	 * Depot_users_dialog::Action interface
+	 */
+	void add_depot_url(Depot_url const &depot_url) override
+	{
+		using Content = File_operation_queue::Content;
+
+		_file_operation_queue.new_small_file(Path("/rw/depot/", depot_url.user, "/download"),
+		                                     Content { depot_url.download });
+
+		if (!_file_operation_queue.any_operation_in_progress())
+			_file_operation_queue.schedule_next_operations();
+
+		generate_runtime_config();
+	}
+
+	/**
+	 * Software_update_dialog::Action interface
+	 */
+	void query_image_index(Depot::Archive::User const &user) override
+	{
+		_image_index_user = user;
+		trigger_depot_query();
+	}
+
+	/**
+	 * Software_update_dialog::Action interface
+	 */
+	void trigger_image_download(Path const &path, Verify verify) override
+	{
+		_download_queue.remove_inactive_downloads();
+		_download_queue.add(path, verify);
+		_deploy.update_installation();
+		generate_runtime_config();
+	}
+
+	/**
+	 * Software_update_dialog::Action interface
+	 */
+	void update_image_index(Depot::Archive::User const &user, Verify verify) override
+	{
+		_download_queue.remove_inactive_downloads();
+		_index_update_queue.remove_inactive_updates();
+		_index_update_queue.add(Path(user, "/image/index"), verify);
+		generate_runtime_config();
+	}
+
+	/**
+	 * Software_update_dialog::Action interface
+	 */
+	void install_boot_image(Path const &path) override
+	{
+		_file_operation_queue.copy_all_files(Path("/rw/depot/", path), "/rw/boot");
+
+		if (!_file_operation_queue.any_operation_in_progress())
+			_file_operation_queue.schedule_next_operations();
+
+		generate_runtime_config();
 	}
 
 	/*
@@ -882,6 +1071,39 @@ struct Sculpt::Main : Input_event_handler,
 	{
 		_settings_visible = !_settings_visible;
 		_refresh_panel_and_window_layout();
+	}
+
+	/*
+	 * Panel::Action interface
+	 */
+	void toggle_system_visibility() override
+	{
+		_system_visible = !_system_visible;
+		_refresh_panel_and_window_layout();
+	}
+
+	/**
+	 * Software_presets_dialog::Action interface
+	 */
+	void load_deploy_preset(Presets::Info::Name const &name) override
+	{
+		Xml_node const listing = _launcher_listing_rom.xml();
+
+		_download_queue.remove_inactive_downloads();
+
+		listing.for_each_sub_node("dir", [&] (Xml_node const &dir) {
+			if (dir.attribute_value("path", Path()) == "/presets") {
+				dir.for_each_sub_node("file", [&] (Xml_node const &file) {
+					if (file.attribute_value("name", Presets::Info::Name()) == name) {
+						file.with_optional_sub_node("config", [&] (Xml_node const &config) {
+							_runtime_state.reset_abandoned_and_launched_children();
+							_deploy.use_as_deploy_template(config);
+							_deploy.update_managed_deploy_config();
+						});
+					}
+				});
+			}
+		});
 	}
 
 	/*
@@ -1078,13 +1300,14 @@ struct Sculpt::Main : Input_event_handler,
 		_close_popup_dialog();
 
 		/* trigger change of the deployment */
-		_deploy.update_managed_deploy_config(_manual_deploy_rom.xml());
+		_download_queue.remove_inactive_downloads();
+		_deploy.update_managed_deploy_config();
 	}
 
-	Start_name new_construction(Component::Path const &pkg,
+	Start_name new_construction(Component::Path const &pkg, Verify verify,
 	                            Component::Info const &info) override
 	{
-		return _runtime_state.new_construction(pkg, info, _affinity_space);
+		return _runtime_state.new_construction(pkg, verify, info, _affinity_space);
 	}
 
 	void _apply_to_construction(Popup_dialog::Action::Apply_to &fn) override
@@ -1101,17 +1324,19 @@ struct Sculpt::Main : Input_event_handler,
 		_close_popup_dialog();
 
 		/* trigger change of the deployment */
-		_deploy.update_managed_deploy_config(_manual_deploy_rom.xml());
+		_deploy.update_managed_deploy_config();
 	}
 
-	void trigger_download(Path const &path) override
+	void trigger_download(Path const &path, Verify verify) override
 	{
-		_download_queue.add(path);
+		_download_queue.remove_inactive_downloads();
+		_download_queue.add(path, verify);
 
 		/* incorporate new download-queue content into update */
 		_deploy.update_installation();
 
 		generate_runtime_config();
+		generate_dialog();
 	}
 
 	void remove_index(Depot::Archive::User const &user) override
@@ -1149,6 +1374,15 @@ struct Sculpt::Main : Input_event_handler,
 	                                Ram_quota{4*1024*1024}, Cap_quota{150},
 	                                "settings_dialog", "settings_view_hover", *this };
 
+	System_dialog _system_dialog { _presets, _build_info, _network._nic_state,
+	                               _download_queue, _index_update_queue,
+	                               _file_operation_queue, _scan_rom,
+	                               _image_index_rom, *this, *this, *this };
+
+	Menu_view _system_menu_view { _env, _child_states, _system_dialog, "system_view",
+	                              Ram_quota{4*1024*1024}, Cap_quota{150},
+	                              "system_dialog", "system_view_hover", *this };
+
 	Menu_view _main_menu_view { _env, _child_states, *this, "menu_view",
 	                             Ram_quota{4*1024*1024}, Cap_quota{150},
 	                             "menu_dialog", "menu_view_hover", *this };
@@ -1156,7 +1390,7 @@ struct Sculpt::Main : Input_event_handler,
 	Popup_dialog _popup_dialog { _env, *this, _launchers,
 	                             _network._nic_state, _network._nic_target,
 	                             _runtime_state, _cached_runtime_config,
-	                             _download_queue, *this, *this };
+	                             _download_queue, _scan_rom, *this, *this };
 
 	Menu_view _popup_menu_view { _env, _child_states, _popup_dialog, "popup_view",
 	                             Ram_quota{4*1024*1024}, Cap_quota{150},
@@ -1234,8 +1468,10 @@ struct Sculpt::Main : Input_event_handler,
 		_pci_devices         .sigh(_pci_devices_handler);
 		_window_list         .sigh(_window_list_handler);
 		_decorator_margins   .sigh(_decorator_margins_handler);
-		_launcher_listing_rom.sigh(_launcher_listing_handler);
+		_scan_rom            .sigh(_scan_handler);
+		_launcher_listing_rom.sigh(_launcher_and_preset_listing_handler);
 		_blueprint_rom       .sigh(_blueprint_handler);
+		_image_index_rom     .sigh(_image_index_handler);
 		_editor_saved_rom    .sigh(_editor_saved_handler);
 		_clicked_rom         .sigh(_clicked_handler);
 
@@ -1310,6 +1546,7 @@ void Sculpt::Main::_handle_window_layout()
 		panel_view_label       ("runtime -> leitzentrale -> panel_view"),
 		menu_view_label        ("runtime -> leitzentrale -> menu_view"),
 		popup_view_label       ("runtime -> leitzentrale -> popup_view"),
+		system_view_label      ("runtime -> leitzentrale -> system_view"),
 		settings_view_label    ("runtime -> leitzentrale -> settings_view"),
 		network_view_label     ("runtime -> leitzentrale -> network_view"),
 		file_browser_view_label("runtime -> leitzentrale -> file_browser_view"),
@@ -1387,10 +1624,24 @@ void Sculpt::Main::_handle_window_layout()
 		_with_window(window_list, Label("log"), [&] (Xml_node win) {
 			gen_window(win, Rect(log_p1, log_p2)); });
 
+		int system_right_xpos = 0;
+		if (system_available()) {
+			_with_window(window_list, system_view_label, [&] (Xml_node win) {
+				Area  const size = win_size(win);
+				Point const pos  = _system_visible
+				                 ? Point(0, avail.y1())
+				                 : Point(-size.w(), avail.y1());
+				gen_window(win, Rect(pos, size));
+
+				if (_system_visible)
+					system_right_xpos = size.w();
+			});
+		}
+
 		_with_window(window_list, settings_view_label, [&] (Xml_node win) {
 			Area  const size = win_size(win);
 			Point const pos  = _settings_visible
-			                 ? Point(0, avail.y1())
+			                 ? Point(system_right_xpos, avail.y1())
 			                 : Point(-size.w(), avail.y1());
 
 			if (_settings.interactive_settings_available())
@@ -1484,6 +1735,7 @@ void Sculpt::Main::_handle_window_layout()
 
 	/* define window-manager focus */
 	_wm_focus.generate([&] (Xml_generator &xml) {
+
 		_window_list.xml().for_each_sub_node("window", [&] (Xml_node win) {
 			Label const label = win.attribute_value("label", Label());
 
@@ -1578,12 +1830,6 @@ void Sculpt::Main::_handle_gui_mode()
 }
 
 
-Sculpt::Dialog::Hover_result Sculpt::Main::hover(Xml_node hover)
-{
-	return _storage.dialog.match_sub_dialog(hover, "vbox", "frame", "vbox");
-}
-
-
 void Sculpt::Main::_handle_update_state()
 {
 	_update_state_rom.update();
@@ -1591,14 +1837,11 @@ void Sculpt::Main::_handle_update_state()
 
 	Xml_node const update_state = _update_state_rom.xml();
 
-	if (update_state.num_sub_nodes() == 0)
-		return;
-
-	bool const popup_watches_downloads =
-		_popup_dialog.interested_in_download();
-
 	_download_queue.apply_update_state(update_state);
-	_download_queue.remove_inactive_downloads();
+	bool const any_completed_download = _download_queue.any_completed_download();
+	_download_queue.remove_completed_downloads();
+
+	_index_update_queue.apply_update_state(update_state);
 
 	bool const installation_complete =
 		!update_state.attribute_value("progress", false);
@@ -1606,17 +1849,16 @@ void Sculpt::Main::_handle_update_state()
 	if (installation_complete) {
 
 		Xml_node const blueprint = _blueprint_rom.xml();
-		bool const new_depot_query_needed = popup_watches_downloads
-		                                 || blueprint_any_missing(blueprint)
-		                                 || blueprint_any_rom_missing(blueprint);
+		bool const new_depot_query_needed = blueprint_any_missing(blueprint)
+		                                 || blueprint_any_rom_missing(blueprint)
+		                                 || any_completed_download;
 		if (new_depot_query_needed)
 			trigger_depot_query();
 
-		if (popup_watches_downloads)
-			_deploy.update_installation();
-
 		_deploy.reattempt_after_installation();
 	}
+
+	generate_dialog();
 }
 
 
@@ -1630,6 +1872,7 @@ void Sculpt::Main::_handle_runtime_state()
 
 	bool reconfigure_runtime = false;
 	bool regenerate_dialog   = false;
+	bool refresh_storage     = false;
 
 	/* check for completed storage operations */
 	_storage._storage_devices.for_each([&] (Storage_device &device) {
@@ -1650,8 +1893,7 @@ void Sculpt::Main::_handle_runtime_state()
 
 					partition.check_in_progress = 0;
 					reconfigure_runtime = true;
-					_storage.dialog.reset_operation();
-					_graph.reset_storage_operation();
+					_reset_storage_dialog_operation();
 				}
 			}
 
@@ -1670,8 +1912,7 @@ void Sculpt::Main::_handle_runtime_state()
 						device.rediscover();
 
 					reconfigure_runtime = true;
-					_storage.dialog.reset_operation();
-					_graph.reset_storage_operation();
+					_reset_storage_dialog_operation();
 				}
 			}
 
@@ -1682,8 +1923,7 @@ void Sculpt::Main::_handle_runtime_state()
 					partition.fs_resize_in_progress = false;
 					reconfigure_runtime = true;
 					device.rediscover();
-					_storage.dialog.reset_operation();
-					_graph.reset_storage_operation();
+					_reset_storage_dialog_operation();
 				}
 			}
 
@@ -1696,6 +1936,7 @@ void Sculpt::Main::_handle_runtime_state()
 				error(device.part_block_start_name(), " got stuck");
 				device.state = Storage_device::RELEASED;
 				reconfigure_runtime = true;
+				refresh_storage     = true;
 			}
 		}
 
@@ -1705,8 +1946,7 @@ void Sculpt::Main::_handle_runtime_state()
 			if (exit_state.exited) {
 				device.rediscover();
 				reconfigure_runtime = true;
-				_storage.dialog.reset_operation();
-				_graph.reset_storage_operation();
+				_reset_storage_dialog_operation();
 			}
 		}
 
@@ -1724,8 +1964,7 @@ void Sculpt::Main::_handle_runtime_state()
 				});
 
 				reconfigure_runtime = true;
-				_storage.dialog.reset_operation();
-				_graph.reset_storage_operation();
+				_reset_storage_dialog_operation();
 			}
 		}
 
@@ -1750,6 +1989,7 @@ void Sculpt::Main::_handle_runtime_state()
 
 			/* trigger update and deploy */
 			reconfigure_runtime = true;
+			_panel_menu_view.generate(); /* show "System" button */
 		}
 	}
 
@@ -1766,6 +2006,17 @@ void Sculpt::Main::_handle_runtime_state()
 				_file_operation_queue.schedule_next_operations();
 				_fs_tool_version.value++;
 				reconfigure_runtime = true;
+				regenerate_dialog = true;
+
+				/* try to proceed after the first step of an depot-index update */
+				unsigned const orig_download_count = _index_update_queue.download_count;
+				_index_update_queue.try_schedule_downloads();
+				if (_index_update_queue.download_count != orig_download_count)
+					_deploy.update_installation();
+
+				/* update depot-user selection after adding new depot URL */
+				if (_system_visible)
+					trigger_depot_query();
 
 				/*
 				 * The removal of an index file may have completed, re-query index
@@ -1795,6 +2046,9 @@ void Sculpt::Main::_handle_runtime_state()
 		reconfigure_runtime = true;
 		regenerate_dialog   = true;
 	}
+
+	if (refresh_storage)
+		_storage.handle_storage_devices_update();
 
 	if (regenerate_dialog) {
 		generate_dialog();
@@ -1860,6 +2114,7 @@ void Sculpt::Main::_generate_runtime_config(Xml_generator &xml) const
 	_panel_menu_view.gen_start_node(xml);
 	_main_menu_view.gen_start_node(xml);
 	_settings_menu_view.gen_start_node(xml);
+	_system_menu_view.gen_start_node(xml);
 	_network_menu_view.gen_start_node(xml);
 	_popup_menu_view.gen_start_node(xml);
 	_file_browser_menu_view.gen_start_node(xml);

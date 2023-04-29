@@ -6,11 +6,9 @@ TARGET  := pc_intel_fb_drv
 LIBS    := base pc_lx_emul blit jitterentropy
 
 INC_DIR += $(REL_PRG_DIR)
-INC_DIR += $(REL_PRG_DIR)/shadow
 
 SRC_CC  += main.cc
 SRC_CC  += emul.cc
-SRC_CC  += time.cc
 SRC_CC  += opregion_io_mem.cc
 SRC_C   += dummies.c
 SRC_C   += pci.c

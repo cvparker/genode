@@ -13,7 +13,6 @@
  */
 
 /* Genode includes */
-#include <base/log.h>
 #include <base/allocator_avl.h>
 #include <base/sleep.h>
 #include <dataspace/capability.h>
@@ -38,7 +37,7 @@
 /* Fiasco.OC includes */
 #include <foc/syscall.h>
 
-using namespace Genode;
+using namespace Core;
 
 
 /***********************************
@@ -288,7 +287,7 @@ void Platform::_setup_mem_alloc()
 	 * prevent sigma0 from handing out those page as anonymous memory.
 	 */
 	volatile const char *beg, *end;
-	beg = (const char *)(((Genode::addr_t)&_prog_img_beg) & L4_PAGEMASK);
+	beg = (const char *)(((addr_t)&_prog_img_beg) & L4_PAGEMASK);
 	end = (const char *)&_prog_img_end;
 	for ( ; beg < end; beg += L4_PAGESIZE) (void)(*beg);
 
@@ -357,9 +356,6 @@ void Platform::_setup_basics()
 	log("    magic: ", Hex(kip.magic));
 	log("  version: ", Hex(kip.version));
 
-	/* add KIP as ROM module */
-	_rom_fs.insert(&_kip_rom);
-
 	/* update multi-boot info pointer from KIP */
 	addr_t const mb_info_addr = kip.user_ptr;
 	log("MBI @ ", Hex(mb_info_addr));
@@ -424,7 +420,7 @@ Platform::Platform()
 	_ram_alloc(nullptr), _io_mem_alloc(&core_mem_alloc()),
 	_io_port_alloc(&core_mem_alloc()), _irq_alloc(&core_mem_alloc()),
 	_region_alloc(&core_mem_alloc()), _cap_id_alloc(core_mem_alloc()),
-	_kip_rom((addr_t)&sigma0_map_kip(), L4_PAGESIZE, "l4v2_kip"),
+	_kip_rom(_rom_fs, "l4v2_kip", (addr_t)&sigma0_map_kip(), L4_PAGESIZE),
 	_sigma0(cap_map().insert(_cap_id_alloc.alloc(), Foc::L4_BASE_PAGER_CAP))
 {
 	/*
@@ -492,8 +488,8 @@ Platform::Platform()
 						memset(core_local_ptr, 0, bytes);
 						content_fn((char *)core_local_ptr, bytes);
 
-						_rom_fs.insert(new (core_mem_alloc())
-						               Rom_module(phys_addr, bytes, rom_name));
+						new (core_mem_alloc())
+							Rom_module(_rom_fs, rom_name, phys_addr, bytes);
 					},
 					[&] (Range_allocator::Alloc_error) {
 						warning("failed allocate virtual memory to export ",

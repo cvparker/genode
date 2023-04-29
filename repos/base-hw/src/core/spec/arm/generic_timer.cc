@@ -21,10 +21,16 @@ using namespace Kernel;
 unsigned Timer::interrupt_id() const { return Board::TIMER_IRQ; }
 
 
-unsigned long Board::Timer::_freq() { return Genode::Cpu::Cntfrq::read(); }
+unsigned long Board::Timer::_freq() { return Core::Cpu::Cntfrq::read(); }
 
 
 Board::Timer::Timer(unsigned) : ticks_per_ms((unsigned)(_freq() / 1000))
+{
+	init();
+}
+
+
+void Board::Timer::init()
 {
 	Cpu::Cntp_ctl::access_t ctl = 0;
 	Cpu::Cntp_ctl::Enable::set(ctl, 1);

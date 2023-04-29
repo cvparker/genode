@@ -15,6 +15,8 @@
 #include <base/attached_rom_dataspace.h>
 #include <base/component.h>
 #include <base/env.h>
+#include <os/reporter.h>
+#include <net/mac_address.h>
 #include <genode_c_api/uplink.h>
 
 /* DDE Linux includes */
@@ -27,6 +29,7 @@
 
 /* local includes */
 #include "lx_user.h"
+#include "dtb_helper.h"
 
 using namespace Genode;
 
@@ -34,7 +37,7 @@ using namespace Genode;
 extern "C" int  lx_emul_rfkill_get_any(void);
 extern "C" void lx_emul_rfkill_switch_all(int blocked);
 
-static Genode::Signal_context_capability _rfkill_sigh_cap;
+static Signal_context_capability _rfkill_sigh_cap;
 
 
 bool _wifi_get_rfkill(void)
@@ -66,7 +69,7 @@ void _wifi_set_rfkill(bool blocked)
 	lx_emul_task_unblock(uplink_task_struct_ptr);
 	Lx_kit::env().scheduler.schedule();
 
-	Genode::Signal_transmitter(_rfkill_sigh_cap).submit();
+	Signal_transmitter(_rfkill_sigh_cap).submit();
 }
 
 
@@ -89,11 +92,71 @@ extern "C" char const *wifi_ifname(void)
 	return "wlan0";
 }
 
+
+struct Mac_address_reporter
+{
+	bool _enabled = false;
+ 
+	Net::Mac_address _mac_address { };
+
+	Constructible<Reporter> _reporter { };
+
+	Env &_env;
+
+	Signal_context_capability _sigh;
+
+	Mac_address_reporter(Env &env, Signal_context_capability sigh)
+	: _env(env), _sigh(sigh)
+	{
+		Attached_rom_dataspace config { _env, "config" };
+
+		config.xml().with_optional_sub_node("report", [&] (Xml_node const &xml) {
+			_enabled = xml.attribute_value("mac_address", false); });
+	}
+
+	void mac_address(Net::Mac_address const &mac_address)
+	{
+		_mac_address = mac_address;
+
+		Signal_transmitter(_sigh).submit();
+	}
+
+	void report()
+	{
+		if (!_enabled)
+			return;
+
+		_reporter.construct(_env, "devices");
+		_reporter->enabled(true);
+
+		Reporter::Xml_generator report(*_reporter, [&] () {
+			report.node("nic", [&] () {
+				report.attribute("mac_address", String<32>(_mac_address));
+			});
+		});
+
+		/* report only once */
+		_enabled = false;
+	}
+};
+
+Constructible<Mac_address_reporter> mac_address_reporter;
+
+
+/* used from socket_call.cc */
+void _wifi_report_mac_address(Net::Mac_address const &mac_address)
+{
+	mac_address_reporter->mac_address(mac_address);
+}
+
+
 struct Wlan
 {
 	Env                    &_env;
 	Io_signal_handler<Wlan> _signal_handler { _env.ep(), *this,
 	                                          &Wlan::_handle_signal };
+
+	Dtb_helper _dtb_helper { _env };
 
 	void _handle_signal()
 	{
@@ -103,24 +166,38 @@ struct Wlan
 		}
 
 		genode_uplink_notify_peers();
+
+		mac_address_reporter->report();
 	}
 
 	Wlan(Env &env) : _env { env }
 	{
+		mac_address_reporter.construct(_env, _signal_handler);
+
 		genode_uplink_init(genode_env_ptr(_env),
 		                   genode_allocator_ptr(Lx_kit::env().heap),
 		                   genode_signal_handler_ptr(_signal_handler));
 
-		lx_emul_start_kernel(nullptr);
+		lx_emul_start_kernel(_dtb_helper.dtb_ptr());
 	}
 };
 
 
-Genode::Blockade *wpa_blockade;
+static Blockade *wpa_blockade;
 
 
-void wifi_init(Genode::Env      &env,
-               Genode::Blockade &blockade)
+extern "C" void wakeup_wpa()
+{
+	static bool called_once = false;
+	if (called_once)
+		return;
+
+	wpa_blockade->wakeup();
+	called_once = true;
+}
+
+
+void wifi_init(Env &env, Blockade &blockade)
 {
 	wpa_blockade = &blockade;
 
@@ -128,7 +205,7 @@ void wifi_init(Genode::Env      &env,
 }
 
 
-void wifi_set_rfkill_sigh(Genode::Signal_context_capability cap)
+void wifi_set_rfkill_sigh(Signal_context_capability cap)
 {
 	_rfkill_sigh_cap = cap;
 }

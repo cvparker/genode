@@ -14,13 +14,16 @@
 #ifndef _CORE__INCLUDE__IRQ_ARGS_H_
 #define _CORE__INCLUDE__IRQ_ARGS_H_
 
-#include <base/log.h>
 #include <util/arg_string.h>
 #include <irq_session/irq_session.h>
 
-namespace Genode { class Irq_args; }
+/* core includes */
+#include <types.h>
 
-class Genode::Irq_args
+namespace Core { class Irq_args; }
+
+
+class Core::Irq_args
 {
 	private:
 

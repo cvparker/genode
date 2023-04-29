@@ -12,11 +12,6 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-/* local includes */
-#include <policy.h>
-#include <monitor.h>
-#include <xml_node.h>
-
 /* Genode includes */
 #include <base/component.h>
 #include <base/attached_rom_dataspace.h>
@@ -26,6 +21,11 @@
 #include <timer_session/connection.h>
 #include <util/construct_at.h>
 #include <util/formatted_output.h>
+#include <util/xml_node.h>
+
+/* local includes */
+#include <policy.h>
+#include <monitor.h>
 
 using namespace Genode;
 using Thread_name = String<40>;
@@ -45,6 +45,7 @@ class Main
 			size_t       session_arg_buffer;
 			unsigned     session_parent_levels;
 			bool         verbose;
+			bool         sc_time;
 			Microseconds period_us;
 			size_t       default_buf_sz;
 			Policy_name  default_policy_name;
@@ -67,8 +68,9 @@ class Main
 		Monitor_tree  _monitors_0      { };
 		Monitor_tree  _monitors_1      { };
 		bool          _monitors_switch { false };
-		Policy_tree   _policies        { };
-		Policy        _default_policy  { _env, _trace, _config.default_policy_name };
+		Policy_dict   _policies        { };
+		Policy        _default_policy  { _env, _trace, _policies,
+		                                 _config.default_policy_name };
 		unsigned long _report_id       { 0 };
 
 		static void _print_monitors(Allocator &alloc, Monitor_tree const &,
@@ -181,15 +183,15 @@ class Main
 				Policy_name const policy_name =
 					session_policy.attribute_value("policy", _config.default_policy_name);
 
-				try {
-					_trace.trace(id.id, _policies.find_by_name(policy_name).id(), buffer_sz);
-
-				}
-				catch (Policy_tree::No_match) {
-					Policy &policy = *new (_heap) Policy(_env, _trace, policy_name);
-					_policies.insert(policy);
-					_trace.trace(id.id, policy.id(), buffer_sz);
-				}
+				_policies.with_element(policy_name,
+					[&] (Policy const &policy) {
+						_trace.trace(id.id, policy.id(), buffer_sz);
+					},
+					[&] /* no match */ {
+						Policy &policy = *new (_heap) Policy(_env, _trace, _policies, policy_name);
+						_trace.trace(id.id, policy.id(), buffer_sz);
+					}
+				);
 				monitors.insert(new (_heap) Monitor(_trace, _env.rm(), id));
 			}
 			catch (Trace::Source_is_dead         ) { warn_msg("Source_is_dead"         ); return; }
@@ -207,7 +209,8 @@ class Main
 
 			log("\nReport ", _report_id++, "\n");
 			Monitor::Level_of_detail const detail { .state       =  _config.verbose,
-			                                        .active_only = !_config.verbose };
+			                                        .active_only = !_config.verbose,
+			                                        .sc_time     =  _config.sc_time };
 			_print_monitors(_heap, monitors, detail);
 		}
 
@@ -215,9 +218,10 @@ class Main
 
 		Main(Env &env) : _env(env)
 		{
-			_policies.insert(_default_policy);
-
-			_update_monitors();
+			/*
+			 * We skip the initial monitor update as the periodic timeout triggers
+			 * the update immediately for the first time.
+			 */
 		}
 };
 
@@ -231,7 +235,9 @@ Main::Config Main::Config::from_xml(Xml_node const &config)
 		                                                Number_of_bytes(1024*4)),
 		.session_parent_levels = config.attribute_value("session_parent_levels", 0u),
 		.verbose               = config.attribute_value("verbose",  false),
-		.period_us             = read_sec_attr(config, "period_sec", 5),
+		.sc_time               = config.attribute_value("sc_time",  false),
+		.period_us             = Microseconds(config.attribute_value("period_sec", 5)
+		                                     * 1'000'000),
 		.default_buf_sz        = config.attribute_value("default_buffer",
 		                                                Number_of_bytes(4*1024)),
 		.default_policy_name   = config.attribute_value("default_policy",
@@ -294,11 +300,14 @@ void Main::_print_monitors(Allocator &alloc, Monitor_tree const &monitors,
 	pds.for_each([&] (Pd const &pd) {
 
 		unsigned const state_width  = detail.state ? fmt.state + 1 : 0;
+		unsigned const sc_width     = detail.sc_time
+		                            ? fmt.total_sc + fmt.total_tc + 21 : 0;
 		unsigned const table_width  = fmt.thread_name
 		                            + fmt.affinity
 		                            + state_width
-		                            + fmt.total_cpu
-		                            + fmt.recent_cpu
+		                            + fmt.total_tc
+		                            + fmt.recent_tc
+		                            + sc_width
 		                            + 26;
 		unsigned const pd_width     = (unsigned)pd.label.length() + 6;
 		unsigned const excess_width = table_width - min(table_width, pd_width);

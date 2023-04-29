@@ -197,13 +197,15 @@ struct Genode::Directory : Noncopyable, Interface
 					_io.commit_and_wait();
 
 				Vfs::File_io_service::Read_result read_result;
-				Vfs::file_size                    out_count = 0;
+
+				size_t out_count = 0;
 
 				for (;;) {
 
-					read_result = _handle->fs().complete_read(_handle,
-					                                          (char*)&entry._dirent,
-					                                          sizeof(entry._dirent),
+					Byte_range_ptr const dst { (char*)&entry._dirent,
+					                            sizeof(entry._dirent) };
+
+					read_result = _handle->fs().complete_read(_handle, dst,
 					                                          out_count);
 
 					if (read_result != Vfs::File_io_service::READ_QUEUED)
@@ -289,14 +291,17 @@ struct Genode::Directory : Noncopyable, Interface
 			auto open_res = _nonconst_fs().openlink(
 				join(_path, rel_path).string(),
 				false, &link_handle, _alloc);
+
 			if (open_res != Directory_service::OPENLINK_OK)
 				throw Nonexistent_file();
+
 			Vfs_handle::Guard guard(link_handle);
 
 			char buf[MAX_PATH_LEN];
 
-			Vfs::file_size count = sizeof(buf)-1;
-			Vfs::file_size out_count = 0;
+			size_t count = sizeof(buf)-1;
+			size_t out_count = 0;
+
 			while (!link_handle->fs().queue_read(link_handle, count)) {
 				_io.commit_and_wait();
 			}
@@ -305,7 +310,7 @@ struct Genode::Directory : Noncopyable, Interface
 
 			for (;;) {
 				result = link_handle->fs().complete_read(
-					link_handle, buf, count, out_count);
+					link_handle, Byte_range_ptr(buf, count), out_count);
 
 				if (result != File_io_service::READ_QUEUED)
 					break;
@@ -452,50 +457,73 @@ class Genode::Readonly_file : public File
 		struct At { Vfs::file_size value; };
 
 		/**
-		 * Read number of 'bytes' from file into local memory buffer 'dst'
-		 *
-		 * \throw Truncated_during_read
+		 * Read file content starting at 'at' into byte buffer 'range'
 		 */
-		size_t read(At at, char *dst, size_t bytes) const
+		size_t read(At at, Byte_range_ptr const &range) const
 		{
-			Vfs::file_size out_count = 0;
-
-			_handle->seek(at.value);
-
-			while (!_handle->fs().queue_read(_handle, bytes))
-				_io.commit_and_wait();
-
-			Vfs::File_io_service::Read_result result;
+			size_t total = 0;
 
 			for (;;) {
-				result = _handle->fs().complete_read(_handle, dst, bytes,
-				                                     out_count);
 
-				if (result != Vfs::File_io_service::READ_QUEUED)
+				_handle->seek(at.value + total);
+
+				while (!_handle->fs().queue_read(_handle, range.num_bytes))
+					_io.commit_and_wait();
+
+				Vfs::File_io_service::Read_result result;
+
+				size_t read_bytes = 0; /* byte count for this iteration */
+
+				for (;;) {
+
+					Byte_range_ptr const partial_range { range.start     + total,
+					                                     range.num_bytes - total };
+
+					result = _handle->fs().complete_read(_handle, partial_range,
+					                                     read_bytes);
+
+					if (result != Vfs::File_io_service::READ_QUEUED)
+						break;
+
+					_io.commit_and_wait();
+				};
+
+				if (read_bytes > range.num_bytes - total) {
+					error("read beyond buffer size");
+					break;
+				}
+
+				if (read_bytes == 0)
 					break;
 
-				_io.commit_and_wait();
-			};
+				total += size_t(read_bytes);
+			}
 
-			/*
-			 * XXX handle READ_ERR_WOULD_BLOCK, READ_QUEUED
-			 */
+			return total;
+		}
 
-			if (result != Vfs::File_io_service::READ_OK)
-				throw Truncated_during_read();
+		/*
+		 * \deprecated  use 'Byte_range_ptr'
+		 */
+		size_t read(char *dst, size_t bytes) const __attribute__((deprecated))
+		{
+			return read(At{0}, Byte_range_ptr(dst, bytes));
+		}
 
-			return (size_t)out_count;
+		/*
+		 * \deprecated  use 'Byte_range_ptr'
+		 */
+		size_t read(At at, char *dst, size_t bytes) const __attribute__((deprecated))
+		{
+			return read(at, Byte_range_ptr(dst, bytes));
 		}
 
 		/**
-		 * Read number of 'bytes' from the start of the file into local memory
-		 * buffer 'dst'
-		 *
-		 * \throw Truncated_during_read
+		 * Read file content into byte buffer 'range'
 		 */
-		size_t read(char *dst, size_t bytes) const
+		size_t read(Byte_range_ptr const &range) const
 		{
-			return read(At{0}, dst, bytes);
+			return read(At{0}, range);
 		}
 };
 
@@ -504,6 +532,8 @@ class Genode::Readonly_file : public File
  * Call functor 'fn' with the data pointer and size in bytes
  *
  * If the buffer has a size of zero, 'fn' is not called.
+ *
+ * \throw Truncated_during_read
  */
 template <typename FN>
 void Genode::with_raw_file_content(Readonly_file const &file,
@@ -512,19 +542,7 @@ void Genode::with_raw_file_content(Readonly_file const &file,
 	if (range.num_bytes == 0)
 		return;
 
-	size_t total_read = 0;
-	while (total_read < range.num_bytes) {
-		size_t read_bytes = file.read(Readonly_file::At{total_read},
-				                      range.start  + total_read,
-				                      range.num_bytes - total_read);
-
-		if (read_bytes == 0)
-			break;
-
-		total_read += read_bytes;
-	}
-
-	if (total_read != range.num_bytes)
+	if (file.read(range) != range.num_bytes)
 		throw File::Truncated_during_read();
 
 	fn(range.start, range.num_bytes);
@@ -541,8 +559,8 @@ template <typename FN>
 void Genode::with_xml_file_content(Readonly_file const &file,
                                    Byte_range_ptr const &range, FN const &fn)
 {
-	with_raw_file_content(file, range,
-	                      [&] (char const *ptr, size_t num_bytes) {
+	with_raw_file_content(file, range, [&] (char const *ptr, size_t num_bytes) {
+
 		try {
 			fn(Xml_node(ptr, num_bytes));
 			return;
@@ -556,6 +574,10 @@ void Genode::with_xml_file_content(Readonly_file const &file,
 
 class Genode::File_content
 {
+	public:
+
+		struct Limit { size_t value; };
+
 	private:
 
 		class Buffer
@@ -579,14 +601,20 @@ class Genode::File_content
 
 		} _buffer;
 
+		static size_t _checked_file_size(Vfs::file_size file_size, Limit limit)
+		{
+			if (file_size <= limit.value)
+				return size_t(file_size);
+
+			throw Truncated_during_read();
+		}
+
 	public:
 
 		typedef Directory::Nonexistent_file Nonexistent_file;
 		typedef File::Truncated_during_read Truncated_during_read;
 
 		typedef Directory::Path Path;
-
-		struct Limit { size_t value; };
 
 		/**
 		 * Constructor
@@ -598,7 +626,7 @@ class Genode::File_content
 		File_content(Allocator &alloc, Directory const &dir, Path const &rel_path,
 		             Limit limit)
 		:
-			_buffer(alloc, min((size_t)dir.file_size(rel_path), limit.value))
+			_buffer(alloc, _checked_file_size(dir.file_size(rel_path), limit))
 		{
 			/* read the file content into the buffer */
 			with_raw_file_content(Readonly_file(dir, rel_path),
@@ -745,21 +773,25 @@ class Genode::Writeable_file : Noncopyable
 		}
 
 		static Append_result _append(Vfs::Vfs_handle &handle, Vfs::Env::Io &io,
-		                             char const *src, size_t size)
+		                             Const_byte_range_ptr const &src)
 		{
 			bool write_error = false;
 
-			size_t remaining_bytes = size;
+			size_t remaining_bytes = src.num_bytes;
+
+			char const * src_ptr = src.start;
 
 			while (remaining_bytes > 0 && !write_error) {
 
 				bool stalled = false;
 
-				Vfs::file_size out_count = 0;
+				size_t out_count = 0;
 
 				using Write_result = Vfs::File_io_service::Write_result;
 
-				switch (handle.fs().write(&handle, src, remaining_bytes, out_count)) {
+				Const_byte_range_ptr const partial_src { src_ptr, remaining_bytes };
+
+				switch (handle.fs().write(&handle, partial_src, out_count)) {
 
 				case Write_result::WRITE_ERR_WOULD_BLOCK:
 					stalled = true;
@@ -771,9 +803,9 @@ class Genode::Writeable_file : Noncopyable
 					break;
 
 				case Write_result::WRITE_OK:
-					out_count = min((Vfs::file_size)remaining_bytes, out_count);
+					out_count = min(remaining_bytes, out_count);
 					remaining_bytes -= (size_t)out_count;
-					src             += out_count;
+					src_ptr         += out_count;
 					handle.advance_seek(out_count);
 					break;
 				};
@@ -820,8 +852,11 @@ class Genode::Append_file : public Writeable_file
 			_handle.ds().close(&_handle);
 		}
 
+		Append_result append(Const_byte_range_ptr const &src) {
+			return _append(_handle, _io, src); }
+
 		Append_result append(char const *src, size_t size) {
-			return _append(_handle, _io, src, size); }
+			return _append(_handle, _io, Const_byte_range_ptr(src, size)); }
 };
 
 
@@ -859,8 +894,11 @@ class Genode::New_file : public Writeable_file
 			_handle.ds().close(&_handle);
 		}
 
+		Append_result append(Const_byte_range_ptr const &src) {
+			return _append(_handle, _io, src); }
+
 		Append_result append(char const *src, size_t size) {
-			return _append(_handle, _io, src, size); }
+			return _append(_handle, _io, Const_byte_range_ptr(src, size)); }
 };
 
 
