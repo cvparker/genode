@@ -465,29 +465,17 @@ Lwip::Read_result Lwip::Lwip_file_handle::read(Byte_range_ptr const &dst,
 	if (!socket)
 		return Read_result::READ_ERR_INVALID;
 
-<<<<<<< HEAD
-	return socket->read(*this, dst, count, out_count);
-}
-
-Lwip::Write_result Lwip::Lwip_file_handle::write(char const *src, file_size count,
-                                                 file_size &out_count)
-=======
 	return socket->read(*this, dst, out_count);
 }
 
 
 Lwip::Write_result Lwip::Lwip_file_handle::write(Const_byte_range_ptr const &src,
                                                  size_t &out_count)
->>>>>>> origin/master
 {
 	if (!socket)
 		return Write_result::WRITE_ERR_INVALID;
 
-<<<<<<< HEAD
-	return socket->write(*this, src, count, out_count);
-=======
 	return socket->write(*this, src, out_count);
->>>>>>> origin/master
 }
 
 
@@ -987,16 +975,6 @@ class Lwip::Udp_socket_dir final :
 		}
 
 		bool write_ready(Lwip_file_handle const &) const override
-<<<<<<< HEAD
-		{
-			return true;
-		}
-
-		Write_result write(Lwip_file_handle &handle,
-		                   char const *src, file_size count,
-		                   file_size &out_count) override
-		{
-=======
 		{
 			return true;
 		}
@@ -1005,7 +983,6 @@ class Lwip::Udp_socket_dir final :
 		                   Const_byte_range_ptr const &src,
 		                   size_t &out_count) override
 		{
->>>>>>> origin/master
 			switch (handle.kind) {
 
 			case Lwip_file_handle::DATA: {
@@ -1406,11 +1383,7 @@ class Lwip::Tcp_socket_dir final :
 
 					handle.kind = Lwip_file_handle::LOCATION;
 					/* read the location of the new socket directory */
-<<<<<<< HEAD
-					Read_result result = handle.read(dst, count, out_count);
-=======
 					Read_result result = handle.read(dst, out_count);
->>>>>>> origin/master
 
 					return result;
 				}
@@ -1493,14 +1466,8 @@ class Lwip::Tcp_socket_dir final :
 			return false;
 		}
 
-<<<<<<< HEAD
-		Write_result write(Lwip_file_handle &handle,
-		                   char const *src, file_size count,
-		                   file_size &out_count) override
-=======
 		Write_result write(Lwip_file_handle &handle, Const_byte_range_ptr const &src,
 		                   size_t &out_count) override
->>>>>>> origin/master
 		{
 			if (_pcb == NULL) {
 				/* socket is closed */
@@ -1792,17 +1759,10 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 		 */
 		struct Vfs_netif : Lwip::Nic_netif
 		{
-<<<<<<< HEAD
-			Vfs::Env::User &_vfs_user;
-
-			Tcp_proto_dir tcp_dir;
-			Udp_proto_dir udp_dir;
-=======
 			Vfs::Env &_vfs_env;
 
 			Tcp_proto_dir tcp_dir { _vfs_env };
 			Udp_proto_dir udp_dir { _vfs_env };
->>>>>>> origin/master
 
 			Nameserver_registry nameserver_handles { };
 
@@ -1814,12 +1774,7 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 			:
 				Lwip::Nic_netif(vfs_env.env(), vfs_env.alloc(), config,
 				                wakeup_scheduler),
-<<<<<<< HEAD
-				_vfs_user(vfs_env.user()),
-				tcp_dir(vfs_env), udp_dir(vfs_env)
-=======
 				_vfs_env(vfs_env)
->>>>>>> origin/master
 			{ }
 
 			~Vfs_netif()
@@ -1833,14 +1788,7 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 			 */
 			void status_callback() override
 			{
-<<<<<<< HEAD
-				tcp_dir.notify();
-				udp_dir.notify();
-
-				_vfs_user.wakeup_vfs_user();
-=======
 				_vfs_env.user().wakeup_vfs_user();
->>>>>>> origin/master
 			}
 
 		} _netif;
@@ -2073,11 +2021,7 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 				return Write_result::WRITE_ERR_INVALID;
 
 			if (Lwip_handle *handle = dynamic_cast<Lwip_handle*>(vfs_handle))
-<<<<<<< HEAD
-				return handle->write(src, count, out_count);
-=======
 				return handle->write(src, out_count);
->>>>>>> origin/master
 
 			return Write_result::WRITE_ERR_INVALID;
 		}
@@ -2107,11 +2051,7 @@ class Lwip::File_system final : public Vfs::File_system, public Lwip::Directory,
 		/**
 		 * All reads are unavailable while the network is down
 		 */
-<<<<<<< HEAD
-		bool queue_read(Vfs_handle *, file_size) override
-=======
 		bool queue_read(Vfs_handle *, size_t) override
->>>>>>> origin/master
 		{
 			if (_netif.ready())
 				return true;

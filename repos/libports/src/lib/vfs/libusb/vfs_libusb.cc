@@ -94,12 +94,7 @@ class Libusb_file_system : public Vfs::Single_file_system
 					return true;
 				}
 
-<<<<<<< HEAD
-				Write_result write(char const *src, Vfs::file_size count,
-				                   Vfs::file_size &out_count) override
-=======
 				Write_result write(Genode::Const_byte_range_ptr const &, Genode::size_t &) override
->>>>>>> origin/master
 				{
 					return WRITE_ERR_IO;
 				}

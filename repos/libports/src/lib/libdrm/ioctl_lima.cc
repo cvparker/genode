@@ -909,11 +909,7 @@ class Lima::Call
 
 			bool result = false;
 			auto free_ctx = [&] (Gpu_context &ctx) {
-<<<<<<< HEAD
-				Genode::destroy(_heap, &ctx);
-=======
 
->>>>>>> origin/master
 				result = true;
 
 				/*

@@ -517,11 +517,7 @@ struct Vfs::Oss_file_system::Audio
 			return true;
 		}
 
-<<<<<<< HEAD
-		Write_result write(char const *buf, file_size buf_size, file_size &out_size)
-=======
 		Write_result write(Const_byte_range_ptr const &src, size_t &out_size)
->>>>>>> origin/master
 		{
 			using namespace Genode;
 
@@ -678,11 +674,7 @@ class Vfs::Oss_file_system::Data_file_system : public Single_file_system
 
 			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
-<<<<<<< HEAD
-				Write_result const result = _audio.write(buf, buf_size, out_count);
-=======
 				Write_result const result = _audio.write(src, out_count);
->>>>>>> origin/master
 
 				if (result == Write_result::WRITE_ERR_WOULD_BLOCK) {
 					blocked = true;

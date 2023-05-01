@@ -79,10 +79,3 @@ void Kernel::Thread::_call_cache_line_size()
 	size_t const cache_line_size = Core::Cpu::cache_line_size();
 	user_arg_0(cache_line_size);
 }
-
-
-void Kernel::Thread::_call_cache_line_size()
-{
-	size_t const cache_line_size = Genode::Cpu::cache_line_size();
-	user_arg_0(cache_line_size);
-}

@@ -853,11 +853,7 @@ ssize_t Libc::Vfs_plugin::write(File_descriptor *fd, const void *buf,
 
 	if (fd->flags & O_NONBLOCK) {
 		monitor().monitor([&] {
-<<<<<<< HEAD
-			out_result = handle->fs().write(handle, (char const *)buf, count, out_count);
-=======
 			out_result = handle->fs().write(handle, src, out_count);
->>>>>>> origin/master
 			return Fn::COMPLETE;
 		});
 	} else {
@@ -897,17 +893,11 @@ ssize_t Libc::Vfs_plugin::write(File_descriptor *fd, const void *buf,
 				/* number of bytes written in one iteration */
 				::size_t partial_out_count = 0;
 
-<<<<<<< HEAD
-				char const * const src = (char const *)_buf + _offset;
-				_out_result = _handle->fs().write(_handle, src, _count, partial_out_count);
-
-=======
 				Const_byte_range_ptr const src { (char const *)_buf + _offset,
 				                                  _count };
 
 				_out_result = _handle->fs().write(_handle, src, partial_out_count);
 
->>>>>>> origin/master
 				if (_out_result == Result::WRITE_ERR_WOULD_BLOCK)
 					return Fn::INCOMPLETE;
 
@@ -2145,19 +2135,12 @@ int Libc::Vfs_plugin::symlink(const char *target_path, const char *link_path)
 
 			case Stage::WRITE:
 				{
-<<<<<<< HEAD
-					typedef Vfs::File_io_service::Write_result Result;
-
-					Result result = handle->fs().write(handle, target_path,
-					                                   count, out_count);
-=======
 					using Result = Vfs::File_io_service::Write_result;
 
 					Const_byte_range_ptr const src { target_path, count };
 
 					Result result = handle->fs().write(handle, src, out_count);
 
->>>>>>> origin/master
 					if (result == Result::WRITE_ERR_WOULD_BLOCK)
 						return Fn::INCOMPLETE;
 				}
