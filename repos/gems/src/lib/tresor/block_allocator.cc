@@ -38,19 +38,10 @@ void Block_allocator_request::create(void             *buf_ptr,
                                      size_t            buf_size,
                                      Genode::uint64_t  src_module_id,
                                      Genode::uint64_t  src_request_id,
-                                     Genode::size_t    req_type,
-                                     void             *prim_ptr,
-                                     Genode::size_t    prim_size)
+                                     Genode::size_t    req_type)
 {
 	Block_allocator_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
-
-	if (prim_size > sizeof(req._prim)) {
-		error(prim_size, " ", sizeof(req._prim));
-		class Bad_size_1 { };
-		throw Bad_size_1 { };
-	}
-	memcpy(&req._prim, prim_ptr, prim_size);
 
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };

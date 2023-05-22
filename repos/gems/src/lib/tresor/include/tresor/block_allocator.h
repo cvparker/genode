@@ -37,10 +37,9 @@ class Tresor::Block_allocator_request : public Module_request
 		friend class Block_allocator;
 		friend class Block_allocator_channel;
 
-		Type             _type                { INVALID };
-		Genode::uint8_t  _prim[PRIM_BUF_SIZE] { 0 };
-		Genode::uint64_t _blk_nr              { 0 };
-		bool             _success             { false };
+		Type             _type    { INVALID };
+		Genode::uint64_t _blk_nr  { 0 };
+		bool             _success { false };
 
 	public:
 
@@ -50,14 +49,10 @@ class Tresor::Block_allocator_request : public Module_request
 		                        unsigned long src_request_id);
 
 		static void create(void             *buf_ptr,
-		                   Genode::size_t            buf_size,
+		                   Genode::size_t    buf_size,
 		                   Genode::uint64_t  src_module_id,
 		                   Genode::uint64_t  src_request_id,
-		                   Genode::size_t    req_type,
-		                   void             *prim_ptr,
-		                   Genode::size_t    prim_size);
-
-		void *prim_ptr() { return (void *)&_prim; }
+		                   Genode::size_t    req_type);
 
 		Genode::uint64_t blk_nr() const { return _blk_nr; }
 

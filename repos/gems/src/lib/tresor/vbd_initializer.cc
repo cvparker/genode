@@ -455,8 +455,7 @@ bool Vbd_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 
 			Block_allocator_request::create(
 				buf_ptr, buf_size, VBD_INITIALIZER, id,
-				block_allocator_req_type,
-				nullptr, 0);
+				block_allocator_req_type);
 
 			return true;
 		}
