@@ -38,8 +38,6 @@ void Vbd_initializer_request::create(void             *buf_ptr,
                                      Genode::uint64_t  src_module_id,
                                      Genode::uint64_t  src_request_id,
                                      Genode::size_t    req_type,
-                                     void             *prim_ptr,
-                                     Genode::size_t    prim_size,
                                      Genode::uint64_t  max_level_idx,
                                      Genode::uint64_t  max_child_idx,
                                      Genode::uint64_t  nr_of_leaves)
@@ -50,13 +48,6 @@ void Vbd_initializer_request::create(void             *buf_ptr,
 	req._max_level_idx = max_level_idx;
 	req._max_child_idx = max_child_idx;
 	req._nr_of_leaves  = nr_of_leaves;
-
-	if (prim_size > sizeof(req._prim)) {
-		error(prim_size, " ", sizeof(req._prim));
-		class Bad_size_1 { };
-		throw Bad_size_1 { };
-	}
-	memcpy(&req._prim, prim_ptr, prim_size);
 
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };

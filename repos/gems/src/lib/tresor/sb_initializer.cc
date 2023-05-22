@@ -397,7 +397,7 @@ bool Sb_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 
 			Vbd_initializer_request::create(
 				buf_ptr, buf_size, SB_INITIALIZER, id,
-				vbd_initializer_req_type, nullptr, 0,
+				vbd_initializer_req_type,
 				channel._request._vbd_max_level_idx,
 				channel._request._vbd_max_child_idx - 1,
 				channel._request._vbd_nr_of_leaves);

@@ -39,13 +39,12 @@ class Tresor::Vbd_initializer_request : public Module_request
 		friend class Vbd_initializer;
 		friend class Vbd_initializer_channel;
 
-		Type             _type                                { INVALID };
-		Genode::uint8_t  _prim[PRIM_BUF_SIZE]                 { 0 };
+		Type             _type                                   { INVALID };
 		Genode::uint8_t  _root_node[sizeof(Tresor::Type_1_node)] { 0 };
-		Genode::uint64_t _max_level_idx                       { 0 };
-		Genode::uint64_t _max_child_idx                       { 0 };
-		Genode::uint64_t _nr_of_leaves                        { 0 };
-		bool             _success                             { false };
+		Genode::uint64_t _max_level_idx                          { 0 };
+		Genode::uint64_t _max_child_idx                          { 0 };
+		Genode::uint64_t _nr_of_leaves                           { 0 };
+		bool             _success                                { false };
 
 
 	public:
@@ -56,17 +55,13 @@ class Tresor::Vbd_initializer_request : public Module_request
 		                        unsigned long src_request_id);
 
 		static void create(void             *buf_ptr,
-		                   Genode::size_t            buf_size,
+		                   Genode::size_t    buf_size,
 		                   Genode::uint64_t  src_module_id,
 		                   Genode::uint64_t  src_request_id,
 		                   Genode::size_t    req_type,
-		                   void             *prim_ptr,
-		                   Genode::size_t    prim_size,
 		                   Genode::uint64_t  max_level_idx,
 		                   Genode::uint64_t  max_child_idx,
 		                   Genode::uint64_t  nr_of_leaves);
-
-		void *prim_ptr() { return (void *)&_prim; }
 
 		void *root_node() { return _root_node; }
 
