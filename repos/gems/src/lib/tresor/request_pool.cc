@@ -665,7 +665,7 @@ bool Request_pool::_peek_generated_request(uint8_t *buf_ptr,
 	default: return false;
 	}
 	Superblock_control_request::create(
-		buf_ptr, buf_size, REQUEST_POOL, idx, scr_type, nullptr, 0,
+		buf_ptr, buf_size, REQUEST_POOL, idx, scr_type,
 		chan._request.offset(), chan._request.tag(),
 		chan._request.count(), chan._prim.blk_nr);
 

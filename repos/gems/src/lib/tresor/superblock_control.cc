@@ -36,21 +36,14 @@ void Superblock_control_request::create(void             *buf_ptr,
                                         uint64_t          src_module_id,
                                         uint64_t          src_request_id,
                                         size_t            req_type,
-                                        void             *prim_ptr,
-                                        size_t            prim_size,
                                         uint64_t          client_req_offset,
                                         uint64_t          client_req_tag,
                                         Number_of_blocks  nr_of_blks,
                                         uint64_t          vba)
 {
 	Superblock_control_request req { src_module_id, src_request_id };
-	req._type = (Type)req_type;
 
-	if (prim_size > sizeof(req._prim)) {
-		class Bad_size_1 { };
-		throw Bad_size_1 { };
-	}
-	memcpy(&req._prim, prim_ptr, prim_size);
+	req._type = (Type)req_type;
 	req._client_req_offset = client_req_offset;
 	req._client_req_tag = client_req_tag;
 	req._nr_of_blks = nr_of_blks;

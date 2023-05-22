@@ -45,15 +45,14 @@ class Tresor::Superblock_control_request : public Module_request
 		friend class Superblock_control;
 		friend class Superblock_control_channel;
 
-		Type                  _type                    { INVALID };
-		Genode::uint64_t      _client_req_offset       { 0 };
-		Genode::uint64_t      _client_req_tag          { 0 };
-		Virtual_block_address _vba                     { 0 };
-		Genode::uint8_t       _prim[PRIM_BUF_SIZE]     { 0 };
-		Superblock::State     _sb_state                { INVALID };
-		Number_of_blocks      _nr_of_blks              { 0 };
-		bool                  _success                 { false };
-		bool                  _request_finished        { false };
+		Type                  _type              { INVALID };
+		Genode::uint64_t      _client_req_offset { 0 };
+		Genode::uint64_t      _client_req_tag    { 0 };
+		Virtual_block_address _vba               { 0 };
+		Superblock::State     _sb_state          { INVALID };
+		Number_of_blocks      _nr_of_blks        { 0 };
+		bool                  _success           { false };
+		bool                  _request_finished  { false };
 
 	public:
 
@@ -69,14 +68,10 @@ class Tresor::Superblock_control_request : public Module_request
 		                   Genode::uint64_t  src_module_id,
 		                   Genode::uint64_t  src_request_id,
 		                   Genode::size_t    req_type,
-		                   void             *prim_ptr,
-		                   Genode::size_t            prim_size,
 		                   Genode::uint64_t  client_req_offset,
 		                   Genode::uint64_t  client_req_tag,
 		                   Number_of_blocks  nr_of_blks,
 		                   Genode::uint64_t  vba);
-
-		void *prim_ptr() { return (void *)&_prim; }
 
 		Superblock::State sb_state() { return _sb_state; }
 
