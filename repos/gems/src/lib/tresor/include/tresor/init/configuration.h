@@ -20,6 +20,8 @@
 
 namespace Tresor_init {
 
+	using namespace Genode;
+
 	class Configuration;
 }
 
@@ -27,45 +29,45 @@ class Tresor_init::Configuration
 {
 	private:
 
-		Genode::uint64_t _vbd_nr_of_lvls     { 0 };
-		Genode::uint64_t _vbd_nr_of_children { 0 };
-		Genode::uint64_t _vbd_nr_of_leafs    { 0 };
-		Genode::uint64_t _ft_nr_of_lvls      { 0 };
-		Genode::uint64_t _ft_nr_of_children  { 0 };
-		Genode::uint64_t _ft_nr_of_leafs     { 0 };
+		uint64_t _vbd_nr_of_lvls     { 0 };
+		uint64_t _vbd_nr_of_children { 0 };
+		uint64_t _vbd_nr_of_leafs    { 0 };
+		uint64_t _ft_nr_of_lvls      { 0 };
+		uint64_t _ft_nr_of_children  { 0 };
+		uint64_t _ft_nr_of_leafs     { 0 };
 
 	public:
 
-		struct Invalid : Genode::Exception { };
+		struct Invalid : Exception { };
 
-		Configuration (Genode::Xml_node const &node)
+		Configuration (Xml_node const &node)
 		{
 			node.with_optional_sub_node("virtual-block-device",
-			                   [&] (Genode::Xml_node const &vbd)
+			                   [&] (Xml_node const &vbd)
 			{
 				_vbd_nr_of_lvls =
-					vbd.attribute_value("nr_of_levels", (Genode::uint64_t)0);
+					vbd.attribute_value("nr_of_levels", (uint64_t)0);
 				_vbd_nr_of_children =
-					vbd.attribute_value("nr_of_children", (Genode::uint64_t)0);
+					vbd.attribute_value("nr_of_children", (uint64_t)0);
 				_vbd_nr_of_leafs =
-					vbd.attribute_value("nr_of_leafs", (Genode::uint64_t)0);
+					vbd.attribute_value("nr_of_leafs", (uint64_t)0);
 			});
 			node.with_optional_sub_node("free-tree",
-			                   [&] (Genode::Xml_node const &ft)
+			                   [&] (Xml_node const &ft)
 			{
 				_ft_nr_of_lvls =
-					ft.attribute_value("nr_of_levels", (Genode::uint64_t)0);
+					ft.attribute_value("nr_of_levels", (uint64_t)0);
 				_ft_nr_of_children =
-					ft.attribute_value("nr_of_children", (Genode::uint64_t)0);
+					ft.attribute_value("nr_of_children", (uint64_t)0);
 				_ft_nr_of_leafs =
-					ft.attribute_value("nr_of_leafs", (Genode::uint64_t)0);
+					ft.attribute_value("nr_of_leafs", (uint64_t)0);
 			});
 			if (_vbd_nr_of_lvls     == 0 ||
-				_vbd_nr_of_children == 0 ||
-				_vbd_nr_of_leafs    == 0 ||
-				_ft_nr_of_lvls      == 0 ||
-				_ft_nr_of_children  == 0 ||
-				_ft_nr_of_leafs     == 0)
+				 _vbd_nr_of_children == 0 ||
+				 _vbd_nr_of_leafs    == 0 ||
+				 _ft_nr_of_lvls      == 0 ||
+				 _ft_nr_of_children  == 0 ||
+				 _ft_nr_of_leafs     == 0)
 			{
 				throw Invalid();
 			}
@@ -81,14 +83,14 @@ class Tresor_init::Configuration
 			_ft_nr_of_leafs     = other._ft_nr_of_leafs    ;
 		}
 
-		Genode::uint64_t vbd_nr_of_lvls     () const { return _vbd_nr_of_lvls    ; }
-		Genode::uint64_t vbd_nr_of_children () const { return _vbd_nr_of_children; }
-		Genode::uint64_t vbd_nr_of_leafs    () const { return _vbd_nr_of_leafs   ; }
-		Genode::uint64_t ft_nr_of_lvls      () const { return _ft_nr_of_lvls     ; }
-		Genode::uint64_t ft_nr_of_children  () const { return _ft_nr_of_children ; }
-		Genode::uint64_t ft_nr_of_leafs     () const { return _ft_nr_of_leafs    ; }
+		uint64_t vbd_nr_of_lvls     () const { return _vbd_nr_of_lvls    ; }
+		uint64_t vbd_nr_of_children () const { return _vbd_nr_of_children; }
+		uint64_t vbd_nr_of_leafs    () const { return _vbd_nr_of_leafs   ; }
+		uint64_t ft_nr_of_lvls      () const { return _ft_nr_of_lvls     ; }
+		uint64_t ft_nr_of_children  () const { return _ft_nr_of_children ; }
+		uint64_t ft_nr_of_leafs     () const { return _ft_nr_of_leafs    ; }
 
-		void print(Genode::Output &out) const
+		void print(Output &out) const
 		{
 			Genode::print(out,
 				"vbd=(lvls=", _vbd_nr_of_lvls,

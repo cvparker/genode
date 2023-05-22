@@ -25,7 +25,7 @@ using namespace Tresor;
 
 
 bool Tresor::check_sha256_4k_hash(void const *data_ptr,
-                               void const *exp_hash_ptr)
+                                  void const *exp_hash_ptr)
 {
 	uint8_t got_hash[32];
 	calc_sha256_4k_hash(data_ptr, &got_hash);
@@ -34,7 +34,7 @@ bool Tresor::check_sha256_4k_hash(void const *data_ptr,
 
 
 void Tresor::calc_sha256_4k_hash(void const * const data_ptr,
-                              void       * const hash_ptr)
+                                 void       * const hash_ptr)
 {
 	SHA256_CTX context { };
 	if (!SHA256_Init(&context)) {

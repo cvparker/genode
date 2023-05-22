@@ -22,7 +22,6 @@
 #include <tresor/crypto.h>
 #include <tresor/free_tree.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 
@@ -43,12 +42,12 @@ char const *Virtual_block_device_request::type_to_string(Type op)
 }
 
 void Virtual_block_device_request::create(void                  *buf_ptr,
-                                          Genode::size_t         buf_size,
-                                          Genode::uint64_t       src_module_id,
-                                          Genode::uint64_t       src_request_id,
-                                          Genode::size_t         req_type,
-                                          Genode::uint64_t       client_req_offset,
-                                          Genode::uint64_t       client_req_tag,
+                                          size_t                 buf_size,
+                                          uint64_t               src_module_id,
+                                          uint64_t               src_request_id,
+                                          size_t                 req_type,
+                                          uint64_t               client_req_offset,
+                                          uint64_t               client_req_tag,
                                           Generation             last_secured_generation,
                                           addr_t                 ft_root_pba_ptr,
                                           addr_t                 ft_root_gen_ptr,
@@ -77,6 +76,7 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
                                           Number_of_blocks       nr_of_pbas)
 {
 	Virtual_block_device_request req { src_module_id, src_request_id };
+
 	req._type                    = (Type)req_type;
 	req._last_secured_generation = last_secured_generation;
 	req._ft_root_pba_ptr         = (addr_t)ft_root_pba_ptr;
@@ -95,6 +95,7 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
 	req._vbd_highest_vba         = vbd_highest_vba;
 	req._rekeying                = rekeying;
 	req._vba                     = vba;
+
 	switch (req_type) {
 	case READ_VBA:
 	case WRITE_VBA:
@@ -149,12 +150,12 @@ Snapshot &Virtual_block_device_channel::snap()
  ** Virtual_block_device **
  **************************/
 
-void Virtual_block_device::_set_args_for_write_back_of_t1_lvl(Tree_level_index const max_lvl,
-                                                              uint64_t const  t1_lvl,
-                                                              uint64_t const  pba,
-                                                              uint64_t const  prim_idx,
-                                                              Channel::State &state,
-                                                              bool &progress,
+void Virtual_block_device::_set_args_for_write_back_of_t1_lvl(Tree_level_index const   max_lvl,
+                                                              uint64_t const           t1_lvl,
+                                                              uint64_t const           pba,
+                                                              uint64_t const           prim_idx,
+                                                              Channel::State          &state,
+                                                              bool                    &progress,
                                                               Channel::Generated_prim &prim)
 {
 	prim = {

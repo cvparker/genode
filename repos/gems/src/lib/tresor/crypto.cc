@@ -19,7 +19,6 @@
 #include <tresor/crypto.h>
 #include <tresor/client_data.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 

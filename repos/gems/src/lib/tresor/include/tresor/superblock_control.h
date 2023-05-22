@@ -46,8 +46,8 @@ class Tresor::Superblock_control_request : public Module_request
 		friend class Superblock_control_channel;
 
 		Type                  _type              { INVALID };
-		Genode::uint64_t      _client_req_offset { 0 };
-		Genode::uint64_t      _client_req_tag    { 0 };
+		uint64_t              _client_req_offset { 0 };
+		uint64_t              _client_req_tag    { 0 };
 		Virtual_block_address _vba               { 0 };
 		Superblock::State     _sb_state          { INVALID };
 		Number_of_blocks      _nr_of_blks        { 0 };
@@ -64,14 +64,14 @@ class Tresor::Superblock_control_request : public Module_request
 		                           unsigned long src_request_id);
 
 		static void create(void             *buf_ptr,
-		                   Genode::size_t    buf_size,
-		                   Genode::uint64_t  src_module_id,
-		                   Genode::uint64_t  src_request_id,
-		                   Genode::size_t    req_type,
-		                   Genode::uint64_t  client_req_offset,
-		                   Genode::uint64_t  client_req_tag,
+		                   size_t            buf_size,
+		                   uint64_t          src_module_id,
+		                   uint64_t          src_request_id,
+		                   size_t            req_type,
+		                   uint64_t          client_req_offset,
+		                   uint64_t          client_req_tag,
 		                   Number_of_blocks  nr_of_blks,
-		                   Genode::uint64_t  vba);
+		                   uint64_t          vba);
 
 		Superblock::State sb_state() { return _sb_state; }
 
@@ -86,7 +86,7 @@ class Tresor::Superblock_control_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override
+		void print(Output &out) const override
 		{
 			Genode::print(out, type_to_string(_type));
 			switch (_type) {
@@ -203,8 +203,8 @@ class Tresor::Superblock_control_channel
 			Type     op     { READ };
 			bool     succ   { false };
 			Tag_type tg     { };
-			Genode::uint64_t blk_nr { 0 };
-			Genode::uint64_t idx    { 0 };
+			uint64_t blk_nr { 0 };
+			uint64_t idx    { 0 };
 		};
 
 		State                      _state              { SUBMITTED };
@@ -262,65 +262,65 @@ class Tresor::Superblock_control : public Module
 		                                  bool    &progress);
 
 		void _secure_sb_init(Channel  &chan,
-		                     Genode::uint64_t  chan_idx,
+		                     uint64_t  chan_idx,
 		                     bool     &progress);
 
 		void _secure_sb_encr_curr_key_compl(Channel  &chan,
-		                                    Genode::uint64_t  chan_idx,
+		                                    uint64_t  chan_idx,
 		                                    bool     &progress);
 
 		void _secure_sb_encr_prev_key_compl(Channel  &chan,
-		                                    Genode::uint64_t  chan_idx,
+		                                    uint64_t  chan_idx,
 		                                    bool     &progress);
 
 		void _secure_sb_sync_cache_compl(Channel  &chan,
-		                                 Genode::uint64_t  chan_idx,
+		                                 uint64_t  chan_idx,
 		                                 bool     &progress);
 
 		void _secure_sb_write_sb_compl(Channel  &chan,
-		                               Genode::uint64_t  chan_idx,
+		                               uint64_t  chan_idx,
 		                               bool     &progress);
 
 		void _secure_sb_sync_blk_io_compl(Channel  &chan,
-		                                  Genode::uint64_t  chan_idx,
+		                                  uint64_t  chan_idx,
 		                                  bool     &progress);
 
 		void _init_sb_without_key_values(Superblock const &, Superblock &);
 
-		void _execute_sync(Channel &, Genode::uint64_t const job_idx, Superblock &,
+		void _execute_sync(Channel &, uint64_t const job_idx, Superblock &,
                            Superblock_index &, Generation &, bool &progress);
 
 		void _execute_tree_ext_step(Channel           &chan,
-		                            Genode::uint64_t   chan_idx,
+		                            uint64_t           chan_idx,
 		                            Superblock::State  tree_ext_sb_state,
 		                            bool               tree_ext_verbose,
 		                            Tag                tree_ext_tag,
 		                            Channel::State     tree_ext_pending_state,
-		                            Genode::String<4>  tree_name,
+		                            String<4>  tree_name,
 		                            bool              &progress);
 
 		void _execute_rekey_vba(Channel  &chan,
-		                        Genode::uint64_t  chan_idx,
+		                        uint64_t  chan_idx,
 		                        bool     &progress);
 
 		void _execute_initialize_rekeying(Channel  &chan,
-		                                  Genode::uint64_t  chan_idx,
+		                                  uint64_t  chan_idx,
 		                                  bool     &progress);
 
-		void _execute_read_vba(Channel &, Genode::uint64_t const job_idx,
+		void _execute_read_vba(Channel &, uint64_t const job_idx,
 		                       Superblock const &, bool &progress);
 
-		void _execute_write_vba(Channel &, Genode::uint64_t const job_idx,
-                                Superblock &, Generation const &, bool &progress);
+		void _execute_write_vba(Channel &, uint64_t const job_idx,
+                              Superblock &, Generation const &, bool &progress);
 
 		void _discard_disposable_snapshots(Snapshots &, Generation const,
                                            Generation const);
 
-		void _execute_initialize(Channel &, Genode::uint64_t const job_idx,
+		void _execute_initialize(Channel &, uint64_t const job_idx,
 		                         Superblock &, Superblock_index &,
 		                         Generation &, bool &progress);
 
-		void _execute_deinitialize(Channel &, Genode::uint64_t const job_idx,
+		void _execute_deinitialize(Channel &, uint64_t const job_idx,
 		                           Superblock &, Superblock_index &,
 		                           Generation &, bool &progress);
 
@@ -333,15 +333,15 @@ class Tresor::Superblock_control : public Module
 
 		void submit_request(Module_request &req) override;
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 

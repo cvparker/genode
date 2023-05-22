@@ -24,6 +24,8 @@
 
 namespace Tresor {
 
+	using namespace Genode;
+
 	enum {
 		INVALID_MODULE_ID = ~0UL,
 		INVALID_MODULE_REQUEST_ID = ~0UL,
@@ -61,7 +63,7 @@ namespace Tresor {
 }
 
 
-class Tresor::Module_request : public Genode::Interface
+class Tresor::Module_request : public Interface
 {
 	private:
 
@@ -80,11 +82,11 @@ class Tresor::Module_request : public Genode::Interface
 
 		void dst_request_id(unsigned long id) { _dst_request_id = id; }
 
-		Genode::String<32> src_request_id_str() const;
+		String<32> src_request_id_str() const;
 
-		Genode::String<32> dst_request_id_str() const;
+		String<32> dst_request_id_str() const;
 
-		virtual void print(Genode::Output &) const = 0;
+		virtual void print(Output &) const = 0;
 
 		virtual ~Module_request() { }
 
@@ -100,12 +102,12 @@ class Tresor::Module_request : public Genode::Interface
 };
 
 
-class Tresor::Module : public Genode::Interface
+class Tresor::Module : public Interface
 {
 	private:
 
-		virtual bool _peek_completed_request(Genode::uint8_t *,
-		                                     Genode::size_t   )
+		virtual bool _peek_completed_request(uint8_t *,
+		                                     size_t   )
 		{
 			return false;
 		}
@@ -116,8 +118,8 @@ class Tresor::Module : public Genode::Interface
 			throw Exception_1 { };
 		}
 
-		virtual bool _peek_generated_request(Genode::uint8_t *,
-		                                     Genode::size_t   )
+		virtual bool _peek_generated_request(uint8_t *,
+		                                     size_t   )
 		{
 			return false;
 		}
@@ -148,7 +150,7 @@ class Tresor::Module : public Genode::Interface
 		template <typename FUNC>
 		void for_each_generated_request(FUNC && handle_request)
 		{
-			Genode::uint8_t buf[4000];
+			uint8_t buf[4000];
 			while (_peek_generated_request(buf, sizeof(buf))) {
 
 				Module_request &req = *(Module_request *)buf;
@@ -174,7 +176,7 @@ class Tresor::Module : public Genode::Interface
 		template <typename FUNC>
 		void for_each_completed_request(FUNC && handle_request)
 		{
-			Genode::uint8_t buf[4000];
+			uint8_t buf[4000];
 			while (_peek_completed_request(buf, sizeof(buf))) {
 
 				Module_request &req = *(Module_request *)buf;
@@ -244,7 +246,7 @@ class Tresor::Module_composition
 					if (!dst_module.ready_to_submit_request()) {
 
 						if (VERBOSE_MODULE_COMMUNICATION)
-							Genode::log(
+							log(
 								module_name(id), " ", req.src_request_id_str(),
 								" --", req, "-| ",
 								module_name(req.dst_module_id()));
@@ -254,7 +256,7 @@ class Tresor::Module_composition
 					dst_module.submit_request(req);
 
 					if (VERBOSE_MODULE_COMMUNICATION)
-						Genode::log(
+						log(
 							module_name(id), " ", req.src_request_id_str(),
 							" --", req, "--> ",
 							module_name(req.dst_module_id()), " ",
@@ -269,7 +271,7 @@ class Tresor::Module_composition
 						throw Exception_3 { };
 					}
 					if (VERBOSE_MODULE_COMMUNICATION)
-						Genode::log(
+						log(
 							module_name(req.src_module_id()), " ",
 							req.src_request_id_str(), " <--", req,
 							"-- ", module_name(id), " ",

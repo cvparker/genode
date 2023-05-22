@@ -39,12 +39,12 @@ class Tresor::Ft_initializer_request : public Module_request
 		friend class Ft_initializer;
 		friend class Ft_initializer_channel;
 
-		Type             _type                                   { INVALID };
-		Genode::uint8_t  _root_node[sizeof(Tresor::Type_1_node)] { 0 };
-		Genode::uint64_t _max_level_idx                          { 0 };
-		Genode::uint64_t _max_child_idx                          { 0 };
-		Genode::uint64_t _nr_of_leaves                           { 0 };
-		bool             _success                                { false };
+		Type     _type                           { INVALID };
+		uint8_t  _root_node[sizeof(Type_1_node)] { 0 };
+		uint64_t _max_level_idx                  { 0 };
+		uint64_t _max_child_idx                  { 0 };
+		uint64_t _nr_of_leaves                   { 0 };
+		bool     _success                        { false };
 
 
 	public:
@@ -54,14 +54,14 @@ class Tresor::Ft_initializer_request : public Module_request
 		Ft_initializer_request(unsigned long src_module_id,
 		                        unsigned long src_request_id);
 
-		static void create(void             *buf_ptr,
-		                   Genode::size_t    buf_size,
-		                   Genode::uint64_t  src_module_id,
-		                   Genode::uint64_t  src_request_id,
-		                   Genode::size_t    req_type,
-		                   Genode::uint64_t  max_level_idx,
-		                   Genode::uint64_t  max_child_idx,
-		                   Genode::uint64_t  nr_of_leaves);
+		static void create(void     *buf_ptr,
+		                   size_t    buf_size,
+		                   uint64_t  src_module_id,
+		                   uint64_t  src_request_id,
+		                   size_t    req_type,
+		                   uint64_t  max_level_idx,
+		                   uint64_t  max_child_idx,
+		                   uint64_t  nr_of_leaves);
 
 		void *root_node() { return _root_node; }
 
@@ -76,7 +76,7 @@ class Tresor::Ft_initializer_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 
@@ -95,9 +95,6 @@ class Tresor::Ft_initializer_channel
 			BLOCK_IO_IN_PROGRESS,
 			BLOCK_IO_COMPLETE,
 		};
-
-		State                   _state   { INACTIVE };
-		Ft_initializer_request _request { };
 
 		enum Child_state { DONE, INIT_BLOCK, INIT_NODE, WRITE_BLOCK, };
 
@@ -119,20 +116,24 @@ class Tresor::Ft_initializer_channel
 			Child_state state { DONE };
 		};
 
-		Root_node    _root_node                 { };
-		Type_1_level _t1_levels[TREE_MAX_LEVEL] { };
-		Type_2_level _t2_level                  { };
-
-		Genode::uint64_t _level_to_write { 0 };
+		State                  _state                     { INACTIVE };
+		Ft_initializer_request _request                   { };
+		Root_node              _root_node                 { };
+		Type_1_level           _t1_levels[TREE_MAX_LEVEL] { };
+		Type_2_level           _t2_level                  { };
+		uint64_t               _level_to_write            { 0 };
+		uint64_t               _blk_nr                    { 0 };
+		uint64_t               _child_pba                 { 0 };
+		bool                   _generated_req_success     { false };
 
 		static void reset_node(Tresor::Type_1_node &node)
 		{
-			Genode::memset(&node, 0, sizeof(Type_1_node));
+			memset(&node, 0, sizeof(Type_1_node));
 		}
 
 		static void reset_node(Tresor::Type_2_node &node)
 		{
-			Genode::memset(&node, 0, sizeof(Type_2_node));
+			memset(&node, 0, sizeof(Type_2_node));
 		}
 
 		static void reset_level(Type_1_level &level,
@@ -157,7 +158,7 @@ class Tresor::Ft_initializer_channel
 		{
 			for (auto v : node_block.nodes) {
 				if (v.pba != 0)
-					Genode::log(v);
+					log(v);
 			}
 		}
 
@@ -165,17 +166,9 @@ class Tresor::Ft_initializer_channel
 		{
 			for (auto v : node_block.nodes) {
 				if (v.pba != 0)
-					Genode::log(v);
+					log(v);
 			}
 		}
-
-		/* Block_allocator */
-		Genode::uint64_t _blk_nr { 0 };
-
-		/* Block_io */
-		Genode::uint64_t _child_pba { 0 };
-
-		bool _generated_req_success { false };
 };
 
 
@@ -190,32 +183,32 @@ class Tresor::Ft_initializer : public Module
 
 		Channel _channels[NR_OF_CHANNELS] { };
 
-		void _execute_leaf_child(Channel                              &channel,
-		                         bool                                 &progress,
-                                 Genode::uint64_t                     &nr_of_leaves,
-		                         Tresor::Type_2_node                     &child,
+		void _execute_leaf_child(Channel                             &channel,
+		                         bool                                &progress,
+                               uint64_t                            &nr_of_leaves,
+		                         Tresor::Type_2_node                 &child,
 		                         Ft_initializer_channel::Child_state &child_state,
-		                         Genode::uint64_t                      child_index);
+		                         uint64_t                             child_index);
 
-		void _execute_inner_t2_child(Channel                               &channel,
-		                             bool                                  &progress,
-		                             Genode::uint64_t                       nr_of_leaves,
-		                             Genode::uint64_t                      &level_to_write,
-		                             Tresor::Type_1_node                      &child,
+		void _execute_inner_t2_child(Channel                              &channel,
+		                             bool                                 &progress,
+		                             uint64_t                              nr_of_leaves,
+		                             uint64_t                             &level_to_write,
+		                             Tresor::Type_1_node                  &child,
 		                             Ft_initializer_channel::Type_2_level &child_level,
 		                             Ft_initializer_channel::Child_state  &child_state,
-		                             Genode::uint64_t                       level_index,
-		                             Genode::uint64_t                       child_index);
+		                             uint64_t                              level_index,
+		                             uint64_t                              child_index);
 
-		void _execute_inner_t1_child(Channel                               &channel,
-		                             bool                                  &progress,
-		                             Genode::uint64_t                       nr_of_leaves,
-		                             Genode::uint64_t                      &level_to_write,
-		                             Tresor::Type_1_node                      &child,
+		void _execute_inner_t1_child(Channel                              &channel,
+		                             bool                                 &progress,
+		                             uint64_t                              nr_of_leaves,
+		                             uint64_t                             &level_to_write,
+		                             Tresor::Type_1_node                  &child,
 		                             Ft_initializer_channel::Type_1_level &child_level,
 		                             Ft_initializer_channel::Child_state  &child_state,
-		                             Genode::uint64_t                       level_index,
-		                             Genode::uint64_t                       child_index);
+		                             uint64_t                              level_index,
+		                             uint64_t                              child_index);
 
 		void _execute(Channel &channel,
 		              bool    &progress);
@@ -235,13 +228,13 @@ class Tresor::Ft_initializer : public Module
 		 ** Module **
 		 ************/
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 

@@ -37,17 +37,17 @@ class Tresor::Meta_tree_request : public Module_request
 		friend class Meta_tree;
 		friend class Meta_tree_channel;
 
-		Type             _type             { INVALID };
-		Genode::addr_t   _mt_root_pba_ptr  { 0 };
-		Genode::addr_t   _mt_root_gen_ptr  { 0 };
-		Genode::addr_t   _mt_root_hash_ptr { 0 };
-		Genode::uint64_t _mt_max_lvl       { 0 };
-		Genode::uint64_t _mt_edges         { 0 };
-		Genode::uint64_t _mt_leaves        { 0 };
-		Genode::uint64_t _current_gen      { 0 };
-		Genode::uint64_t _old_pba          { INVALID_PBA };
-		Genode::uint64_t _new_pba          { INVALID_PBA };
-		bool             _success          { false };
+		Type     _type             { INVALID };
+		addr_t   _mt_root_pba_ptr  { 0 };
+		addr_t   _mt_root_gen_ptr  { 0 };
+		addr_t   _mt_root_hash_ptr { 0 };
+		uint64_t _mt_max_lvl       { 0 };
+		uint64_t _mt_edges         { 0 };
+		uint64_t _mt_leaves        { 0 };
+		uint64_t _current_gen      { 0 };
+		uint64_t _old_pba          { INVALID_PBA };
+		uint64_t _new_pba          { INVALID_PBA };
+		bool     _success          { false };
 
 	public:
 
@@ -56,21 +56,21 @@ class Tresor::Meta_tree_request : public Module_request
 		Meta_tree_request(unsigned long src_module_id,
 		                  unsigned long src_request_id);
 
-		static void create(void             *buf_ptr,
-		                   Genode::size_t    buf_size,
-		                   Genode::uint64_t  src_module_id,
-		                   Genode::uint64_t  src_request_id,
-		                   Genode::size_t    req_type,
-		                   void             *mt_root_pba_ptr,
-		                   void             *mt_root_gen_ptr,
-		                   void             *mt_root_hash_ptr,
-		                   Genode::uint64_t  mt_max_lvl,
-		                   Genode::uint64_t  mt_edges,
-		                   Genode::uint64_t  mt_leaves,
-		                   Genode::uint64_t  curr_gen,
-		                   Genode::uint64_t  old_pba);
+		static void create(void     *buf_ptr,
+		                   size_t    buf_size,
+		                   uint64_t  src_module_id,
+		                   uint64_t  src_request_id,
+		                   size_t    req_type,
+		                   void     *mt_root_pba_ptr,
+		                   void     *mt_root_gen_ptr,
+		                   void     *mt_root_hash_ptr,
+		                   uint64_t  mt_max_lvl,
+		                   uint64_t  mt_edges,
+		                   uint64_t  mt_leaves,
+		                   uint64_t  curr_gen,
+		                   uint64_t  old_pba);
 
-		Genode::uint64_t new_pba() { return _new_pba; }
+		uint64_t new_pba() { return _new_pba; }
 
 		Type type() const { return _type; }
 
@@ -83,7 +83,7 @@ class Tresor::Meta_tree_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 
@@ -108,7 +108,7 @@ class Tresor::Meta_tree_channel
 			State             state   { INVALID };
 			Type_1_node       node    { };
 			Type_1_node_block entries { };
-			Genode::uint8_t   index   { INVALID_NODE_INDEX };
+			uint8_t           index   { INVALID_NODE_INDEX };
 			bool              dirty   { false };
 			bool              volatil { false };
 		};
@@ -121,7 +121,7 @@ class Tresor::Meta_tree_channel
 			State             state   { INVALID };
 			Type_1_node       node    { };
 			Type_2_node_block entries { };
-			Genode::uint8_t   index   { INVALID_NODE_INDEX };
+			uint8_t           index   { INVALID_NODE_INDEX };
 			bool              volatil { false };
 		};
 
@@ -130,19 +130,19 @@ class Tresor::Meta_tree_channel
 			enum State { INVALID, PENDING, IN_PROGRESS };
 			enum Op { READ, WRITE, SYNC };
 
-			State            state                  { INVALID };
-			Op               op                     { READ };
-			bool             success                { false };
-			Genode::uint64_t pba                    { 0 };
-			Genode::uint64_t level                  { 0 };
-			Genode::uint8_t  block_data[BLOCK_SIZE] { 0 };
+			State    state                  { INVALID };
+			Op       op                     { READ };
+			bool     success                { false };
+			uint64_t pba                    { 0 };
+			uint64_t level                  { 0 };
+			uint8_t  block_data[BLOCK_SIZE] { 0 };
 
-			Local_cache_request(State             state,
-			                    Op                op,
-			                    bool              success,
-			                    Genode::uint64_t  pba,
-			                    Genode::uint64_t  level,
-			                    Genode::uint8_t  *blk_ptr)
+			Local_cache_request(State     state,
+			                    Op        op,
+			                    bool      success,
+			                    uint64_t  pba,
+			                    uint64_t  level,
+			                    uint8_t  *blk_ptr)
 			:
 				state   { state },
 				op      { op },
@@ -151,7 +151,7 @@ class Tresor::Meta_tree_channel
 				level   { level }
 			{
 				if (blk_ptr != nullptr) {
-					Genode::memcpy(&block_data, blk_ptr, BLOCK_SIZE);
+					memcpy(&block_data, blk_ptr, BLOCK_SIZE);
 				}
 			}
 
@@ -199,15 +199,15 @@ class Tresor::Meta_tree : public Module
 		                               bool        &exchanged);
 
 		bool _node_volatile(Type_1_node const &node,
-		                    Genode::uint64_t   gen);
+		                    uint64_t           gen);
 
 		void _handle_level_0_nodes(Channel &channel,
 		                           bool    &handled);
 
-		void _update_parent(Type_1_node           &node,
-		                    Genode::uint8_t const *blk_ptr,
-		                    Genode::uint64_t       gen,
-		                    Genode::uint64_t       pba);
+		void _update_parent(Type_1_node   &node,
+		                    uint8_t const *blk_ptr,
+		                    uint64_t       gen,
+		                    uint64_t       pba);
 
 		void _handle_level_0_nodes(bool &handled);
 
@@ -230,15 +230,15 @@ class Tresor::Meta_tree : public Module
 
 		void submit_request(Module_request &req) override;
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 

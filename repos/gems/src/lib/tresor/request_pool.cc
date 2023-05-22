@@ -15,7 +15,6 @@
 #include <tresor/request_pool.h>
 #include <tresor/superblock_control.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 

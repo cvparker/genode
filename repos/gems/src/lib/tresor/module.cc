@@ -15,7 +15,6 @@
 #include <tresor/types.h>
 #include <tresor/module.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 

@@ -20,7 +20,6 @@
 #include <tresor/ft_check.h>
 #include <tresor/block_io.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 
@@ -29,17 +28,17 @@ using namespace Tresor;
  **********************/
 
 Sb_check_request::Sb_check_request(unsigned long src_module_id,
-                                                 unsigned long src_request_id)
+                                   unsigned long src_request_id)
 :
 	Module_request { src_module_id, src_request_id, SB_CHECK }
 { }
 
 
-void Sb_check_request::create(void             *buf_ptr,
-                              size_t            buf_size,
-                              Genode::uint64_t  src_module_id,
-                              Genode::uint64_t  src_request_id,
-                              Genode::size_t    req_type)
+void Sb_check_request::create(void     *buf_ptr,
+                              size_t    buf_size,
+                              uint64_t  src_module_id,
+                              uint64_t  src_request_id,
+                              size_t    req_type)
 {
 	Sb_check_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;

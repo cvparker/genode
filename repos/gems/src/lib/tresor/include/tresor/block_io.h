@@ -39,32 +39,32 @@ class Tresor::Block_io_request : public Module_request
 		friend class Block_io;
 		friend class Block_io_channel;
 
-		Type             _type                { INVALID };
-		Genode::uint64_t _client_req_offset   { 0 };
-		Genode::uint64_t _client_req_tag      { 0 };
-		Genode::uint32_t _key_id              { 0 };
-		Genode::uint64_t _pba                 { 0 };
-		Genode::uint64_t _vba                 { 0 };
-		Genode::uint64_t _blk_count           { 0 };
-		Genode::addr_t   _blk_ptr             { 0 };
-		Genode::addr_t   _hash_ptr            { 0 };
-		bool             _success             { false };
+		Type     _type              { INVALID };
+		uint64_t _client_req_offset { 0 };
+		uint64_t _client_req_tag    { 0 };
+		uint32_t _key_id            { 0 };
+		uint64_t _pba               { 0 };
+		uint64_t _vba               { 0 };
+		uint64_t _blk_count         { 0 };
+		addr_t   _blk_ptr           { 0 };
+		addr_t   _hash_ptr          { 0 };
+		bool     _success           { false };
 
 	public:
 
 		Block_io_request() { }
 
-		Block_io_request(Genode::uint64_t  src_module_id,
-		                 Genode::uint64_t  src_request_id,
-		                 Genode::size_t    req_type,
-		                 Genode::uint64_t  client_req_offset,
-		                 Genode::uint64_t  client_req_tag,
-		                 Genode::uint32_t  key_id,
-		                 Genode::uint64_t  pba,
-		                 Genode::uint64_t  vba,
-		                 Genode::uint64_t  blk_count,
-		                 void             *blk_ptr,
-		                 void             *hash_ptr);
+		Block_io_request(uint64_t  src_module_id,
+		                 uint64_t  src_request_id,
+		                 size_t    req_type,
+		                 uint64_t  client_req_offset,
+		                 uint64_t  client_req_tag,
+		                 uint32_t  key_id,
+		                 uint64_t  pba,
+		                 uint64_t  vba,
+		                 uint64_t  blk_count,
+		                 void     *blk_ptr,
+		                 void     *hash_ptr);
 
 		Type type() const { return _type; }
 
@@ -79,7 +79,7 @@ class Tresor::Block_io_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override;
+		void print(Output &out) const override;
 };
 
 class Tresor::Block_io_channel
@@ -98,12 +98,12 @@ class Tresor::Block_io_channel
 			DECRYPT_CLIENT_DATA_COMPLETE
 		};
 
-		State            _state                    { INACTIVE };
-		Block_io_request _request                  { };
-		Vfs::file_offset _nr_of_processed_bytes    { 0 };
-		Vfs::file_size   _nr_of_remaining_bytes    { 0 };
-		char             _blk_buf[Tresor::BLOCK_SIZE] { 0 };
-		bool             _generated_req_success    { false };
+		State            _state                 { INACTIVE };
+		Block_io_request _request               { };
+		Vfs::file_offset _nr_of_processed_bytes { 0 };
+		Vfs::file_size   _nr_of_remaining_bytes { 0 };
+		char             _blk_buf[BLOCK_SIZE]   { 0 };
+		bool             _generated_req_success { false };
 };
 
 class Tresor::Block_io : public Module
@@ -119,7 +119,7 @@ class Tresor::Block_io : public Module
 
 		enum { NR_OF_CHANNELS = 1 };
 
-		Genode::String<32> const  _path;
+		String<32> const  _path;
 		Vfs::Env         &_vfs_env;
 		Vfs::Vfs_handle  &_vfs_handle               { vfs_open_rw(_vfs_env, _path) };
 		Channel           _channels[NR_OF_CHANNELS] { };
@@ -155,15 +155,15 @@ class Tresor::Block_io : public Module
 
 		void submit_request(Module_request &req) override;
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 
@@ -171,8 +171,8 @@ class Tresor::Block_io : public Module
 
 	public:
 
-		Block_io(Vfs::Env               &vfs_env,
-		         Genode::Xml_node const &xml_node);
+		Block_io(Vfs::Env       &vfs_env,
+		         Xml_node const &xml_node);
 };
 
 #endif /* _TRESOR__BLOCK_IO_H_ */

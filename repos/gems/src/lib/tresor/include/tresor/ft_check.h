@@ -51,13 +51,13 @@ class Tresor::Ft_check_request : public Module_request
 
 		Ft_check_request() { }
 
-		Ft_check_request(Genode::uint64_t   src_module_id,
-		                  Genode::uint64_t  src_request_id,
-		                  Type              type,
-		                  Tree_level_index  max_lvl,
-		                  Tree_node_index   max_child_idx,
-		                  Number_of_leaves  nr_of_leaves,
-		                  Type_1_node       root);
+		Ft_check_request(uint64_t          src_module_id,
+		                 uint64_t          src_request_id,
+		                 Type              type,
+		                 Tree_level_index  max_lvl,
+		                 Tree_node_index   max_child_idx,
+		                 Number_of_leaves  nr_of_leaves,
+		                 Type_1_node       root);
 
 		Type type() const { return _type; }
 
@@ -70,7 +70,7 @@ class Tresor::Ft_check_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override
+		void print(Output &out) const override
 		{
 			Genode::print(out, type_to_string(_type), " root ", _root);
 		}
@@ -181,13 +181,13 @@ class Tresor::Ft_check : public Module
 		 ** Module **
 		 ************/
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 

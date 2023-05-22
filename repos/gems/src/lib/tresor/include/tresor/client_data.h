@@ -44,13 +44,13 @@ class Tresor::Client_data_request : public Module_request
 		friend class ::Vfs_tresor::Wrapper;
 		friend class ::Tresor_tester::Main;
 
-		Type             _type              { INVALID };
-		Genode::uint64_t _client_req_offset { 0 };
-		Genode::uint64_t _client_req_tag    { 0 };
-		Genode::uint64_t _pba               { 0 };
-		Genode::uint64_t _vba               { 0 };
-		Genode::addr_t   _plaintext_blk_ptr { 0 };
-		bool             _success           { false };
+		Type     _type              { INVALID };
+		uint64_t _client_req_offset { 0 };
+		uint64_t _client_req_tag    { 0 };
+		uint64_t _pba               { 0 };
+		uint64_t _vba               { 0 };
+		addr_t   _plaintext_blk_ptr { 0 };
+		bool     _success           { false };
 
 	public:
 
@@ -63,14 +63,14 @@ class Tresor::Client_data_request : public Module_request
 		 ** can be removed once the tresor translation is done **
 		 *****************************************************/
 
-		Client_data_request(unsigned long    src_module_id,
-		                    unsigned long    src_request_id,
-		                    Type             type,
-		                    Genode::uint64_t client_req_offset,
-		                    Genode::uint64_t client_req_tag,
-		                    Genode::uint64_t pba,
-		                    Genode::uint64_t vba,
-		                    Genode::addr_t   plaintext_blk_ptr)
+		Client_data_request(unsigned long src_module_id,
+		                    unsigned long src_request_id,
+		                    Type          type,
+		                    uint64_t      client_req_offset,
+		                    uint64_t      client_req_tag,
+		                    uint64_t      pba,
+		                    uint64_t      vba,
+		                    addr_t        plaintext_blk_ptr)
 		:
 			Module_request     { src_module_id, src_request_id, CLIENT_DATA },
 			_type              { type },
@@ -98,7 +98,7 @@ class Tresor::Client_data_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 #endif /* _TRESOR__CLIENT_DATA_H_ */

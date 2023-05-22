@@ -20,7 +20,6 @@
 #include <tresor/ft_resizing.h>
 #include <tresor/sha256_4k_hash.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 

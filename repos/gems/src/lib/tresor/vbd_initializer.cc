@@ -20,7 +20,6 @@
 #include <tresor/sha256_4k_hash.h>
 #include <tresor/vbd_initializer.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 static constexpr bool DEBUG = false;
@@ -33,14 +32,14 @@ Vbd_initializer_request::Vbd_initializer_request(unsigned long src_module_id,
 { }
 
 
-void Vbd_initializer_request::create(void             *buf_ptr,
-                                     size_t            buf_size,
-                                     Genode::uint64_t  src_module_id,
-                                     Genode::uint64_t  src_request_id,
-                                     Genode::size_t    req_type,
-                                     Genode::uint64_t  max_level_idx,
-                                     Genode::uint64_t  max_child_idx,
-                                     Genode::uint64_t  nr_of_leaves)
+void Vbd_initializer_request::create(void     *buf_ptr,
+                                     size_t    buf_size,
+                                     uint64_t  src_module_id,
+                                     uint64_t  src_request_id,
+                                     size_t    req_type,
+                                     uint64_t  max_level_idx,
+                                     uint64_t  max_child_idx,
+                                     uint64_t  nr_of_leaves)
 {
 	Vbd_initializer_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
@@ -69,11 +68,11 @@ char const *Vbd_initializer_request::type_to_string(Type type)
 
 void Vbd_initializer::_execute_leaf_child(Channel                              &channel,
                                           bool                                 &progress,
-                                          Genode::uint64_t                     &nr_of_leaves,
-                                          Tresor::Type_1_node                     &child,
+                                          uint64_t                             &nr_of_leaves,
+                                          Type_1_node                          &child,
                                           Vbd_initializer_channel::Child_state &child_state,
-                                          Genode::uint64_t                      level_index,
-                                          Genode::uint64_t                      child_index)
+                                          uint64_t                              level_index,
+                                          uint64_t                              child_index)
 {
 	using CS = Vbd_initializer_channel::Child_state;
 
@@ -87,8 +86,8 @@ void Vbd_initializer::_execute_leaf_child(Channel                              &
 		if (nr_of_leaves == 0) {
 
 			if (DEBUG)
-				Genode::log("[vbd_init] node: ", level_index, " ", child_index,
-				             " assign pba 0, leaf unused");
+				log("[vbd_init] node: ", level_index, " ", child_index,
+				    " assign pba 0, leaf unused");
 
 			Vbd_initializer_channel::reset_node(child);
 			child_state = CS::DONE;
@@ -124,9 +123,9 @@ void Vbd_initializer::_execute_leaf_child(Channel                              &
 				progress = true;
 
 				if (DEBUG)
-					Genode::log("[vbd_init] node: ", level_index, " ", child_index,
-					            " assign pba: ", channel._blk_nr, " leaves left: ",
-					             nr_of_leaves);
+					log("[vbd_init] node: ", level_index, " ", child_index,
+					    " assign pba: ", channel._blk_nr, " leaves left: ",
+					    nr_of_leaves);
 				break;
 
 			default:
@@ -141,13 +140,13 @@ void Vbd_initializer::_execute_leaf_child(Channel                              &
 
 void Vbd_initializer::_execute_inner_t1_child(Channel                               &channel,
                                               bool                                  &progress,
-                                              Genode::uint64_t                       nr_of_leaves,
-                                              Genode::uint64_t                      &level_to_write,
-                                              Tresor::Type_1_node                      &child,
+                                              uint64_t                               nr_of_leaves,
+                                              uint64_t                              &level_to_write,
+                                              Type_1_node                           &child,
                                               Vbd_initializer_channel::Type_1_level &child_level,
                                               Vbd_initializer_channel::Child_state  &child_state,
-                                              Genode::uint64_t                       level_index,
-                                              Genode::uint64_t                       child_index)
+                                              uint64_t                               level_index,
+                                              uint64_t                               child_index)
 
 {
 	using CS = Vbd_initializer_channel::Child_state;
@@ -158,8 +157,8 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 		if (nr_of_leaves == 0) {
 
 			if (DEBUG)
-				Genode::log("[vbd_init] node: ", level_index, " ", child_index,
-				            " assign pba 0, inner node unused");
+				log("[vbd_init] node: ", level_index, " ", child_index,
+				    " assign pba 0, inner node unused");
 
 			Vbd_initializer_channel::reset_node(child);
 			child_state = CS::DONE;
@@ -168,8 +167,8 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 		} else {
 
 			if (DEBUG)
-				Genode::log("[vbd_init] node: ", level_index, " ", child_index,
-				            " reset level: ", level_index - 1);
+				log("[vbd_init] node: ", level_index, " ", child_index,
+				    " reset level: ", level_index - 1);
 
 			Vbd_initializer_channel::reset_level(child_level, CS::INIT_BLOCK);
 			child_state = CS::INIT_NODE;
@@ -208,8 +207,8 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 			progress = true;
 
 			if (DEBUG)
-				Genode::log("[vbd_init] node: ", level_index, " ", child_index,
-				            " assign pba: ", channel._blk_nr);
+				log("[vbd_init] node: ", level_index, " ", child_index,
+				    " assign pba: ", channel._blk_nr);
 			break;
 
 		default:
@@ -248,9 +247,9 @@ void Vbd_initializer::_execute_inner_t1_child(Channel                           
 			progress = true;
 
 			if (DEBUG)
-				Genode::log("[vbd_init] node: ", level_index, " ", child_index,
-				            " write pba: ", channel._child_pba, " level: ",
-				            level_index -1, " (child: ", child, ")");
+				log("[vbd_init] node: ", level_index, " ", child_index,
+				    " write pba: ", channel._child_pba, " level: ",
+				    level_index -1, " (child: ", child, ")");
 			break;
 		default:
 			break;
@@ -273,16 +272,16 @@ void Vbd_initializer::_execute(Channel &channel,
 	 * First handle all child nodes (leaves and inner nodes) that starts after
 	 * triggering the root node below.
 	 */
-	for (Genode::uint64_t level_idx = 0; level_idx <= req._max_level_idx; level_idx++) {
+	for (uint64_t level_idx = 0; level_idx <= req._max_level_idx; level_idx++) {
 
-		for (Genode::uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
+		for (uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
 
 			Vbd_initializer_channel::Child_state &state =
 				channel._t1_levels[level_idx].children_state[child_idx];
 
 			if (state != Vbd_initializer_channel::Child_state::DONE) {
 
-				Tresor::Type_1_node &child =
+				Type_1_node &child =
 					channel._t1_levels[level_idx].children.nodes[child_idx];
 
 				if (level_idx == 1) {
@@ -405,8 +404,8 @@ void Vbd_initializer::_mark_req_successful(Channel &channel,
 }
 
 
-bool Vbd_initializer::_peek_completed_request(Genode::uint8_t *buf_ptr,
-                                              Genode::size_t   buf_size)
+bool Vbd_initializer::_peek_completed_request(uint8_t *buf_ptr,
+                                              size_t   buf_size)
 {
 	for (Channel &channel : _channels) {
 		if (channel._state == Channel::COMPLETE) {
@@ -438,8 +437,8 @@ void Vbd_initializer::_drop_completed_request(Module_request &req)
 }
 
 
-bool Vbd_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
-                                              size_t           buf_size)
+bool Vbd_initializer::_peek_generated_request(uint8_t *buf_ptr,
+                                              size_t   buf_size)
 {
 	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
 
@@ -472,7 +471,7 @@ bool Vbd_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 				nullptr);
 
 			if (DEBUG) {
-				Genode::log("BLOCK_IO_PENDING write ", channel._child_pba);
+				log("BLOCK_IO_PENDING write ", channel._child_pba);
 				Vbd_initializer_channel::dump(channel._t1_levels[channel._level_to_write].children);
 			}
 

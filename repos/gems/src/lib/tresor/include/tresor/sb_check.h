@@ -51,11 +51,11 @@ class Tresor::Sb_check_request : public Module_request
 		Sb_check_request(unsigned long src_module_id,
 		                        unsigned long src_request_id);
 
-		static void create(void             *buf_ptr,
-		                   Genode::size_t    buf_size,
-		                   Genode::uint64_t  src_module_id,
-		                   Genode::uint64_t  src_request_id,
-		                   Genode::size_t    req_type);
+		static void create(void     *buf_ptr,
+		                   size_t    buf_size,
+		                   uint64_t  src_module_id,
+		                   uint64_t  src_request_id,
+		                   size_t    req_type);
 
 		Type type() const { return _type; }
 
@@ -68,7 +68,7 @@ class Tresor::Sb_check_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 
@@ -136,13 +136,13 @@ class Tresor::Sb_check : public Module
 		 ** Module **
 		 ************/
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 

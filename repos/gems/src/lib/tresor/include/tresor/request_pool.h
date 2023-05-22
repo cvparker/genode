@@ -30,7 +30,7 @@ namespace Tresor {
 	{
 		public:
 
-			enum Operation : Genode::uint32_t {
+			enum Operation : uint32_t {
 				INVALID = 0,
 				READ = 1,
 				WRITE = 2,
@@ -49,23 +49,23 @@ namespace Tresor {
 
 			Operation        _operation;
 			bool             _success;
-			Genode::uint64_t         _block_number;
-			Genode::uint64_t         _offset;
+			uint64_t         _block_number;
+			uint64_t         _offset;
 			Number_of_blocks _count;
-			Genode::uint32_t         _key_id;
-			Genode::uint32_t         _tag;
-			Genode::uint32_t         _snap_id;
+			uint32_t         _key_id;
+			uint32_t         _tag;
+			uint32_t         _snap_id;
 
 		public:
 
 			Request(Operation        operation,
 			        bool             success,
-			        Genode::uint64_t         block_number,
-			        Genode::uint64_t         offset,
+			        uint64_t         block_number,
+			        uint64_t         offset,
 			        Number_of_blocks count,
-			        Genode::uint32_t         key_id,
-			        Genode::uint32_t         tag,
-			        Genode::uint32_t         snap_id,
+			        uint32_t         key_id,
+			        uint32_t         tag,
+			        uint32_t         snap_id,
 			        unsigned long    src_module_id,
 			        unsigned long    src_request_id)
 			:
@@ -117,17 +117,17 @@ namespace Tresor {
 
 			Operation        operation()    const { return _operation; }
 			bool             success()      const { return _success; }
-			Genode::uint64_t         block_number() const { return _block_number; }
-			Genode::uint64_t         offset()       const { return _offset; }
+			uint64_t         block_number() const { return _block_number; }
+			uint64_t         offset()       const { return _offset; }
 			Number_of_blocks count()        const { return _count; }
-			Genode::uint32_t         key_id()       const { return _key_id; }
-			Genode::uint32_t         tag()          const { return _tag; }
-			Genode::uint32_t         snap_id()      const { return _snap_id; }
+			uint32_t         key_id()       const { return _key_id; }
+			uint32_t         tag()          const { return _tag; }
+			uint32_t         snap_id()      const { return _snap_id; }
 
-			void offset(Genode::uint64_t arg) { _offset = arg; }
-			void success(bool arg) { _success = arg; }
-			void tag(Genode::uint32_t arg)    { _tag = arg; }
-			void snap_id(Genode::uint32_t arg) { _snap_id = arg; }
+			void offset(uint64_t arg)  { _offset = arg; }
+			void success(bool arg)     { _success = arg; }
+			void tag(uint32_t arg)     { _tag = arg; }
+			void snap_id(uint32_t arg) { _snap_id = arg; }
 
 			static char const *op_to_string(Operation op);
 
@@ -136,7 +136,7 @@ namespace Tresor {
 			 ** Module_request **
 			 ********************/
 
-			void print(Genode::Output &out) const override
+			void print(Output &out) const override
 			{
 				Genode::print(out, op_to_string(_operation));
 				switch (_operation) {
@@ -214,7 +214,7 @@ class Tresor::Request_pool_channel
 			TAG_POOL_SB_CTRL_REKEY_VBA,
 		};
 
-		using Pool_index = Genode::uint32_t;
+		using Pool_index = uint32_t;
 
 		struct Generated_prim {
 			enum Type { READ, WRITE };
@@ -223,17 +223,17 @@ class Tresor::Request_pool_channel
 			bool       succ;
 			Tag_type   tg;
 			Pool_index pl_idx;
-			Genode::uint64_t   blk_nr;
-			Genode::uint64_t   idx;
+			uint64_t   blk_nr;
+			uint64_t   idx;
 		};
 
 		Tresor::Request   _request                 { };
 		State             _state                   { INVALID };
 		Generated_prim    _prim                    { };
-		Genode::uint64_t  _nr_of_blks              { 0 };
+		uint64_t          _nr_of_blks              { 0 };
 		Generation        _gen                     { };
 		Superblock::State _sb_state                { Superblock::INVALID };
-		Genode::uint32_t  _nr_of_requests_preponed { 0 };
+		uint32_t          _nr_of_requests_preponed { 0 };
 		bool              _request_finished        { false };
 
 		void invalidate()
@@ -255,7 +255,7 @@ class Tresor::Request_pool : public Module
 
 		using Channel = Request_pool_channel;
 		using Request = Tresor::Request;
-		using Slots_index = Genode::uint32_t;
+		using Slots_index = uint32_t;
 		using Pool_index = Channel::Pool_index;
 		using Generated_prim = Channel::Generated_prim;
 
@@ -426,15 +426,15 @@ class Tresor::Request_pool : public Module
 		 ** Module **
 		 ************/
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 
@@ -457,22 +457,22 @@ class Tresor::Request_pool : public Module
 
 inline char const *to_string(Tresor::Request::Operation op)
 {
-	struct Unknown_operation_type : Genode::Exception { };
 	switch (op) {
-	case Tresor::Request::Operation::INVALID: return "invalid";
-	case Tresor::Request::Operation::READ: return "read";
-	case Tresor::Request::Operation::WRITE: return "write";
-	case Tresor::Request::Operation::SYNC: return "sync";
-	case Tresor::Request::Operation::CREATE_SNAPSHOT: return "create_snapshot";
-	case Tresor::Request::Operation::DISCARD_SNAPSHOT: return "discard_snapshot";
-	case Tresor::Request::Operation::REKEY: return "rekey";
-	case Tresor::Request::Operation::EXTEND_VBD: return "extend_vbd";
-	case Tresor::Request::Operation::EXTEND_FT: return "extend_ft";
-	case Tresor::Request::Operation::RESUME_REKEYING: return "resume_rekeying";
-	case Tresor::Request::Operation::DEINITIALIZE: return "deinitialize";
-	case Tresor::Request::Operation::INITIALIZE: return "initialize";
+	case Tresor::Request::INVALID: return "invalid";
+	case Tresor::Request::READ: return "read";
+	case Tresor::Request::WRITE: return "write";
+	case Tresor::Request::SYNC: return "sync";
+	case Tresor::Request::CREATE_SNAPSHOT: return "create_snapshot";
+	case Tresor::Request::DISCARD_SNAPSHOT: return "discard_snapshot";
+	case Tresor::Request::REKEY: return "rekey";
+	case Tresor::Request::EXTEND_VBD: return "extend_vbd";
+	case Tresor::Request::EXTEND_FT: return "extend_ft";
+	case Tresor::Request::RESUME_REKEYING: return "resume_rekeying";
+	case Tresor::Request::DEINITIALIZE: return "deinitialize";
+	case Tresor::Request::INITIALIZE: return "initialize";
 	}
-	throw Unknown_operation_type();
+	class Exception_1 { };
+	throw Exception_1 { };
 }
 
 #endif /* _TRESOR__REQUEST_POOL_H_ */

@@ -20,27 +20,26 @@
 #include <tresor/sha256_4k_hash.h>
 #include <tresor/ft_initializer.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 static constexpr bool DEBUG = false;
 
 
 Ft_initializer_request::Ft_initializer_request(unsigned long src_module_id,
-                                                 unsigned long src_request_id)
+                                               unsigned long src_request_id)
 :
 	Module_request { src_module_id, src_request_id, FT_INITIALIZER }
 { }
 
 
-void Ft_initializer_request::create(void             *buf_ptr,
-                                    size_t            buf_size,
-                                    Genode::uint64_t  src_module_id,
-                                    Genode::uint64_t  src_request_id,
-                                    Genode::size_t    req_type,
-                                    Genode::uint64_t  max_level_idx,
-                                    Genode::uint64_t  max_child_idx,
-                                    Genode::uint64_t  nr_of_leaves)
+void Ft_initializer_request::create(void     *buf_ptr,
+                                    size_t    buf_size,
+                                    uint64_t  src_module_id,
+                                    uint64_t  src_request_id,
+                                    size_t    req_type,
+                                    uint64_t  max_level_idx,
+                                    uint64_t  max_child_idx,
+                                    uint64_t  nr_of_leaves)
 {
 	Ft_initializer_request req { src_module_id, src_request_id };
 
@@ -68,11 +67,11 @@ char const *Ft_initializer_request::type_to_string(Type type)
 
 
 void Ft_initializer::_execute_leaf_child(Channel                              &channel,
-                                          bool                                 &progress,
-                                          Genode::uint64_t                     &nr_of_leaves,
-                                          Tresor::Type_2_node                     &child,
+                                          bool                                &progress,
+                                          uint64_t                            &nr_of_leaves,
+                                          Type_2_node                         &child,
                                           Ft_initializer_channel::Child_state &child_state,
-                                          Genode::uint64_t                      child_index)
+                                          uint64_t                             child_index)
 {
 	using CS = Ft_initializer_channel::Child_state;
 
@@ -86,8 +85,8 @@ void Ft_initializer::_execute_leaf_child(Channel                              &c
 		if (nr_of_leaves == 0) {
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", 1, " ", child_index,
-				             " assign pba 0, leaf unused");
+				log("[ft_init] node: ", 1, " ", child_index,
+				    " assign pba 0, leaf unused");
 
 			Ft_initializer_channel::reset_node(child);
 			child_state = CS::DONE;
@@ -123,9 +122,9 @@ void Ft_initializer::_execute_leaf_child(Channel                              &c
 				progress = true;
 
 				if (DEBUG)
-					Genode::log("[ft_init] node: ", 1, " ", child_index,
-					            " assign pba: ", channel._blk_nr, " leaves left: ",
-					             nr_of_leaves);
+					log("[ft_init] node: ", 1, " ", child_index,
+					    " assign pba: ", channel._blk_nr, " leaves left: ",
+					    nr_of_leaves);
 				break;
 
 			default:
@@ -139,14 +138,14 @@ void Ft_initializer::_execute_leaf_child(Channel                              &c
 
 
 void Ft_initializer::_execute_inner_t2_child(Channel                               &channel,
-                                              bool                                  &progress,
-                                              Genode::uint64_t                       nr_of_leaves,
-                                              Genode::uint64_t                      &level_to_write,
-                                              Tresor::Type_1_node                      &child,
+                                              bool                                 &progress,
+                                              uint64_t                              nr_of_leaves,
+                                              uint64_t                             &level_to_write,
+                                              Type_1_node                          &child,
                                               Ft_initializer_channel::Type_2_level &child_level,
                                               Ft_initializer_channel::Child_state  &child_state,
-                                              Genode::uint64_t                       level_index,
-                                              Genode::uint64_t                       child_index)
+                                              uint64_t                              level_index,
+                                              uint64_t                              child_index)
 
 {
 	using CS = Ft_initializer_channel::Child_state;
@@ -157,8 +156,8 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 		if (nr_of_leaves == 0) {
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", level_index, " ", child_index,
-				            " assign pba 0, inner node unused");
+				log("[ft_init] node: ", level_index, " ", child_index,
+				    " assign pba 0, inner node unused");
 
 			Ft_initializer_channel::reset_node(child);
 			child_state = CS::DONE;
@@ -167,8 +166,8 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 		} else {
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", level_index, " ", child_index,
-				            " reset level: ", level_index - 1);
+				log("[ft_init] node: ", level_index, " ", child_index,
+				    " reset level: ", level_index - 1);
 
 			Ft_initializer_channel::reset_level(child_level, CS::INIT_BLOCK);
 			child_state = CS::INIT_NODE;
@@ -207,8 +206,8 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 			progress = true;
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", level_index, " ", child_index,
-				            " assign pba: ", channel._blk_nr);
+				log("[ft_init] node: ", level_index, " ", child_index,
+				    " assign pba: ", channel._blk_nr);
 			break;
 
 		default:
@@ -247,9 +246,9 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 			progress = true;
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", level_index, " ", child_index,
-				            " write pba: ", channel._child_pba, " level: ",
-				            level_index -1, " (child: ", child, ")");
+				log("[ft_init] node: ", level_index, " ", child_index,
+				    " write pba: ", channel._child_pba, " level: ",
+				    level_index -1, " (child: ", child, ")");
 			break;
 		default:
 			break;
@@ -264,14 +263,14 @@ void Ft_initializer::_execute_inner_t2_child(Channel                            
 
 
 void Ft_initializer::_execute_inner_t1_child(Channel                               &channel,
-                                              bool                                  &progress,
-                                              Genode::uint64_t                       nr_of_leaves,
-                                              Genode::uint64_t                      &level_to_write,
-                                              Tresor::Type_1_node                      &child,
+                                              bool                                 &progress,
+                                              uint64_t                              nr_of_leaves,
+                                              uint64_t                             &level_to_write,
+                                              Type_1_node                          &child,
                                               Ft_initializer_channel::Type_1_level &child_level,
                                               Ft_initializer_channel::Child_state  &child_state,
-                                              Genode::uint64_t                       level_index,
-                                              Genode::uint64_t                       child_index)
+                                              uint64_t                              level_index,
+                                              uint64_t                              child_index)
 
 {
 	using CS = Ft_initializer_channel::Child_state;
@@ -282,8 +281,8 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 		if (nr_of_leaves == 0) {
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", level_index, " ", child_index,
-				            " assign pba 0, inner node unused");
+				log("[ft_init] node: ", level_index, " ", child_index,
+				    " assign pba 0, inner node unused");
 
 			Ft_initializer_channel::reset_node(child);
 			child_state = CS::DONE;
@@ -292,8 +291,8 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 		} else {
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", level_index, " ", child_index,
-				            " reset level: ", level_index - 1);
+				log("[ft_init] node: ", level_index, " ", child_index,
+				    " reset level: ", level_index - 1);
 
 			Ft_initializer_channel::reset_level(child_level, CS::INIT_BLOCK);
 			child_state = CS::INIT_NODE;
@@ -332,8 +331,8 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 			progress = true;
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", level_index, " ", child_index,
-				            " assign pba: ", channel._blk_nr);
+				log("[ft_init] node: ", level_index, " ", child_index,
+				    " assign pba: ", channel._blk_nr);
 			break;
 
 		default:
@@ -372,9 +371,9 @@ void Ft_initializer::_execute_inner_t1_child(Channel                            
 			progress = true;
 
 			if (DEBUG)
-				Genode::log("[ft_init] node: ", level_index, " ", child_index,
-				            " write pba: ", channel._child_pba, " level: ",
-				            level_index -1, " (child: ", child, ")");
+				log("[ft_init] node: ", level_index, " ", child_index,
+				    " write pba: ", channel._child_pba, " level: ",
+				    level_index -1, " (child: ", child, ")");
 			break;
 		default:
 			break;
@@ -397,14 +396,14 @@ void Ft_initializer::_execute(Channel &channel,
 	 * First handle all leaf child nodes that starts after
 	 * triggering the inner T2 nodes below.
 	 */
-	for (Genode::uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
+	for (uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
 
 		Ft_initializer_channel::Child_state &state =
 			channel._t2_level.children_state[child_idx];
 
 		if (state != Ft_initializer_channel::Child_state::DONE) {
 
-			Tresor::Type_2_node &child =
+			Type_2_node &child =
 				channel._t2_level.children.nodes[child_idx];
 
 			_execute_leaf_child(channel, progress, req._nr_of_leaves,
@@ -416,16 +415,16 @@ void Ft_initializer::_execute(Channel &channel,
 	 * Second handle all inner child nodes that starts after
 	 * triggering the root node below.
 	 */
-	for (Genode::uint64_t level_idx = 1; level_idx <= req._max_level_idx; level_idx++) {
+	for (uint64_t level_idx = 1; level_idx <= req._max_level_idx; level_idx++) {
 
-		for (Genode::uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
+		for (uint64_t child_idx = 0; child_idx <= req._max_child_idx; child_idx++) {
 
 			Ft_initializer_channel::Child_state &state =
 				channel._t1_levels[level_idx].children_state[child_idx];
 
 			if (state != Ft_initializer_channel::Child_state::DONE) {
 
-				Tresor::Type_1_node &child =
+				Type_1_node &child =
 					channel._t1_levels[level_idx].children.nodes[child_idx];
 
 				if (level_idx == 2) {
@@ -554,8 +553,8 @@ void Ft_initializer::_mark_req_successful(Channel &channel,
 }
 
 
-bool Ft_initializer::_peek_completed_request(Genode::uint8_t *buf_ptr,
-                                              Genode::size_t   buf_size)
+bool Ft_initializer::_peek_completed_request(uint8_t *buf_ptr,
+                                             size_t   buf_size)
 {
 	for (Channel &channel : _channels) {
 		if (channel._state == Channel::COMPLETE) {
@@ -587,8 +586,8 @@ void Ft_initializer::_drop_completed_request(Module_request &req)
 }
 
 
-bool Ft_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
-                                              size_t           buf_size)
+bool Ft_initializer::_peek_generated_request(uint8_t *buf_ptr,
+                                             size_t   buf_size)
 {
 	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
 
@@ -622,10 +621,10 @@ bool Ft_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 				0, 0, channel._child_pba, 0, 1, data, nullptr);
 
 			if (DEBUG) {
-				Genode::log("BLOCK_IO_PENDING write ", channel._child_pba);
+				log("BLOCK_IO_PENDING write ", channel._child_pba);
 				if (channel._level_to_write == 1)
 					Ft_initializer_channel::dump(channel._t2_level.children);
-				else 
+				else
 					Ft_initializer_channel::dump(channel._t1_levels[channel._level_to_write].children);
 			}
 

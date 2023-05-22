@@ -19,7 +19,6 @@
 #include <tresor/block_io.h>
 #include <tresor/sha256_4k_hash.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 

@@ -17,7 +17,6 @@
 /* tresor includes */
 #include <tresor/block_allocator.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 
@@ -28,17 +27,17 @@ Block_allocator_request::Block_allocator_request(unsigned long src_module_id,
 { }
 
 
-void Block_allocator_request::print(Genode::Output &out) const
+void Block_allocator_request::print(Output &out) const
 {
 	Genode::print(out, type_to_string(_type));
 }
 
 
-void Block_allocator_request::create(void             *buf_ptr,
-                                     size_t            buf_size,
-                                     Genode::uint64_t  src_module_id,
-                                     Genode::uint64_t  src_request_id,
-                                     Genode::size_t    req_type)
+void Block_allocator_request::create(void     *buf_ptr,
+                                     size_t    buf_size,
+                                     uint64_t  src_module_id,
+                                     uint64_t  src_request_id,
+                                     size_t    req_type)
 {
 	Block_allocator_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
@@ -107,8 +106,8 @@ void Block_allocator::_mark_req_successful(Channel &channel,
 }
 
 
-bool Block_allocator::_peek_completed_request(Genode::uint8_t *buf_ptr,
-                                              Genode::size_t   buf_size)
+bool Block_allocator::_peek_completed_request(uint8_t *buf_ptr,
+                                              size_t   buf_size)
 {
 	for (Channel &channel : _channels) {
 		if (channel._state == Channel::COMPLETE) {

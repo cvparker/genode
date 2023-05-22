@@ -60,10 +60,10 @@ class Tresor::Sb_initializer_request : public Module_request
 		                        unsigned long src_request_id);
 
 		static void create(void             *buf_ptr,
-		                   Genode::size_t    buf_size,
-		                   Genode::uint64_t  src_module_id,
-		                   Genode::uint64_t  src_request_id,
-		                   Genode::size_t    req_type,
+		                   size_t            buf_size,
+		                   uint64_t          src_module_id,
+		                   uint64_t          src_request_id,
+		                   size_t            req_type,
 		                   Tree_level_index  vbd_max_level_idx,
 		                   Tree_degree       vbd_max_child_idx,
 		                   Number_of_leaves  vbd_nr_of_leaves,
@@ -85,7 +85,7 @@ class Tresor::Sb_initializer_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 
@@ -140,16 +140,16 @@ class Tresor::Sb_initializer_channel
 		void clean_data()
 		{
 			_sb = Superblock { };
-			Genode::memset(&_sb_slot, 0, sizeof(_sb_slot));
+			memset(&_sb_slot, 0, sizeof(_sb_slot));
 
-			Genode::memset(&_blk_io_data, 0, sizeof(_blk_io_data));
-			Genode::memset(&_key_plain,   0, sizeof(_key_plain));
-			Genode::memset(&_key_cipher,  0, sizeof(_key_cipher));
-			Genode::memset(&_sb_hash,     0, sizeof(_sb_hash));
+			memset(&_blk_io_data, 0, sizeof(_blk_io_data));
+			memset(&_key_plain,   0, sizeof(_key_plain));
+			memset(&_key_cipher,  0, sizeof(_key_cipher));
+			memset(&_sb_hash,     0, sizeof(_sb_hash));
 
-			Genode::memset(&_vbd_node, 0, sizeof(_vbd_node));
-			Genode::memset(&_ft_node,  0, sizeof(_ft_node));
-			Genode::memset(&_mt_node,  0, sizeof(_mt_node));
+			memset(&_vbd_node, 0, sizeof(_vbd_node));
+			memset(&_ft_node,  0, sizeof(_ft_node));
+			memset(&_mt_node,  0, sizeof(_mt_node));
 		}
 };
 
@@ -187,13 +187,13 @@ class Tresor::Sb_initializer : public Module
 		 ** Module **
 		 ************/
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 

@@ -39,70 +39,70 @@ class Tresor::Free_tree_request : public Module_request
 		friend class Free_tree;
 		friend class Free_tree_channel;
 
-		Type             _type                    { INVALID };
-		Genode::addr_t   _ft_root_pba_ptr         { 0 };
-		Genode::addr_t   _ft_root_gen_ptr         { 0 };
-		Genode::addr_t   _ft_root_hash_ptr        { 0 };
-		Genode::uint64_t _ft_max_level            { 0 };
-		Genode::uint64_t _ft_degree               { 0 };
-		Genode::uint64_t _ft_leaves               { 0 };
-		Genode::addr_t   _mt_root_pba_ptr         { 0 };
-		Genode::addr_t   _mt_root_gen_ptr         { 0 };
-		Genode::addr_t   _mt_root_hash_ptr        { 0 };
-		Genode::uint64_t _mt_max_level            { 0 };
-		Genode::uint64_t _mt_degree               { 0 };
-		Genode::uint64_t _mt_leaves               { 0 };
-		Genode::uint64_t _current_gen             { 0 };
-		Genode::uint64_t _free_gen                { 0 };
-		Genode::uint64_t _requested_blocks        { 0 };
-		Genode::addr_t   _new_blocks_ptr          { 0 };
-		Genode::addr_t   _old_blocks_ptr          { 0 };
-		Genode::uint64_t _max_level               { 0 };
-		Genode::uint64_t _vba                     { INVALID_VBA };
-		Genode::uint64_t _vbd_degree              { 0 };
-		Genode::uint64_t _vbd_highest_vba         { 0 };
-		bool             _rekeying                { 0 };
-		Genode::uint32_t _previous_key_id         { 0 };
-		Genode::uint32_t _current_key_id          { 0 };
-		Genode::uint64_t _rekeying_vba            { 0 };
-		bool             _success                 { false };
-		Genode::addr_t   _snapshots_ptr           { 0 };
-		Generation       _last_secured_generation { INVALID_GENERATION };
+		Type       _type                    { INVALID };
+		addr_t     _ft_root_pba_ptr         { 0 };
+		addr_t     _ft_root_gen_ptr         { 0 };
+		addr_t     _ft_root_hash_ptr        { 0 };
+		uint64_t   _ft_max_level            { 0 };
+		uint64_t   _ft_degree               { 0 };
+		uint64_t   _ft_leaves               { 0 };
+		addr_t     _mt_root_pba_ptr         { 0 };
+		addr_t     _mt_root_gen_ptr         { 0 };
+		addr_t     _mt_root_hash_ptr        { 0 };
+		uint64_t   _mt_max_level            { 0 };
+		uint64_t   _mt_degree               { 0 };
+		uint64_t   _mt_leaves               { 0 };
+		uint64_t   _current_gen             { 0 };
+		uint64_t   _free_gen                { 0 };
+		uint64_t   _requested_blocks        { 0 };
+		addr_t     _new_blocks_ptr          { 0 };
+		addr_t     _old_blocks_ptr          { 0 };
+		uint64_t   _max_level               { 0 };
+		uint64_t   _vba                     { INVALID_VBA };
+		uint64_t   _vbd_degree              { 0 };
+		uint64_t   _vbd_highest_vba         { 0 };
+		bool       _rekeying                { 0 };
+		uint32_t   _previous_key_id         { 0 };
+		uint32_t   _current_key_id          { 0 };
+		uint64_t   _rekeying_vba            { 0 };
+		bool       _success                 { false };
+		addr_t     _snapshots_ptr           { 0 };
+		Generation _last_secured_generation { INVALID_GENERATION };
 
 	public:
 
 		Free_tree_request() { }
 
-		Free_tree_request(Genode::uint64_t  src_module_id,
-		                  Genode::uint64_t  src_request_id,
-		                  Genode::size_t    req_type,
-		                  Genode::addr_t    ft_root_pba_ptr,
-		                  Genode::addr_t    ft_root_gen_ptr,
-		                  Genode::addr_t    ft_root_hash_ptr,
-		                  Genode::uint64_t  ft_max_level,
-		                  Genode::uint64_t  ft_degree,
-		                  Genode::uint64_t  ft_leaves,
-		                  Genode::addr_t    mt_root_pba_ptr,
-		                  Genode::addr_t    mt_root_gen_ptr,
-		                  Genode::addr_t    mt_root_hash_ptr,
-		                  Genode::uint64_t  mt_max_level,
-		                  Genode::uint64_t  mt_degree,
-		                  Genode::uint64_t  mt_leaves,
-		                  Snapshots const  *snapshots,
-		                  Generation        last_secured_generation,
-		                  Genode::uint64_t  current_gen,
-		                  Genode::uint64_t  free_gen,
-		                  Genode::uint64_t  requested_blocks,
-		                  Genode::addr_t    new_blocks_ptr,
-		                  Genode::addr_t    old_blocks_ptr,
-		                  Genode::uint64_t  max_level,
-		                  Genode::uint64_t  vba,
-		                  Genode::uint64_t  vbd_degree,
-		                  Genode::uint64_t  vbd_highest_vba,
-		                  bool              rekeying,
-		                  Genode::uint32_t  previous_key_id,
-		                  Genode::uint32_t  current_key_id,
-		                  Genode::uint64_t  rekeying_vba);
+		Free_tree_request(uint64_t         src_module_id,
+		                  uint64_t         src_request_id,
+		                  size_t           req_type,
+		                  addr_t           ft_root_pba_ptr,
+		                  addr_t           ft_root_gen_ptr,
+		                  addr_t           ft_root_hash_ptr,
+		                  uint64_t         ft_max_level,
+		                  uint64_t         ft_degree,
+		                  uint64_t         ft_leaves,
+		                  addr_t           mt_root_pba_ptr,
+		                  addr_t           mt_root_gen_ptr,
+		                  addr_t           mt_root_hash_ptr,
+		                  uint64_t         mt_max_level,
+		                  uint64_t         mt_degree,
+		                  uint64_t         mt_leaves,
+		                  Snapshots const *snapshots,
+		                  Generation       last_secured_generation,
+		                  uint64_t         current_gen,
+		                  uint64_t         free_gen,
+		                  uint64_t         requested_blocks,
+		                  addr_t           new_blocks_ptr,
+		                  addr_t           old_blocks_ptr,
+		                  uint64_t         max_level,
+		                  uint64_t         vba,
+		                  uint64_t         vbd_degree,
+		                  uint64_t         vbd_highest_vba,
+		                  bool             rekeying,
+		                  uint32_t         previous_key_id,
+		                  uint32_t         current_key_id,
+		                  uint64_t         rekeying_vba);
 
 		Type type() const { return _type; }
 
@@ -115,7 +115,7 @@ class Tresor::Free_tree_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override { Genode::print(out, type_to_string(_type)); }
+		void print(Output &out) const override { Genode::print(out, type_to_string(_type)); }
 };
 
 
@@ -164,11 +164,11 @@ class Tresor::Free_tree_channel
 			enum State { INVALID, PENDING, IN_PROGRESS, COMPLETE };
 			enum Op { READ, WRITE, SYNC };
 
-			State            state                  { INVALID };
-			Op               op                     { READ };
-			bool             success                { false };
-			Genode::uint64_t pba                    { 0 };
-			Genode::uint64_t level                  { 0 };
+			State    state   { INVALID };
+			Op       op      { READ };
+			bool     success { false };
+			uint64_t pba     { 0 };
+			uint64_t level   { 0 };
 		};
 
 		struct Local_meta_tree_request
@@ -176,9 +176,9 @@ class Tresor::Free_tree_channel
 			enum State { INVALID, PENDING, IN_PROGRESS, COMPLETE };
 			enum Op { READ, WRITE, SYNC };
 
-			State            state { INVALID };
-			Op               op    { READ };
-			Genode::uint64_t pba   { 0 };
+			State    state { INVALID };
+			Op       op    { READ };
+			uint64_t pba   { 0 };
 		};
 
 		class Type_1_info_stack {
@@ -188,7 +188,7 @@ class Tresor::Free_tree_channel
 				enum { MIN = 1, MAX = TREE_MAX_DEGREE,  };
 
 				Type_1_info _container[MAX + 1] { };
-				Genode::uint64_t    _top                { MIN - 1 };
+				uint64_t    _top                { MIN - 1 };
 
 			public:
 
@@ -243,7 +243,7 @@ class Tresor::Free_tree_channel
 				enum { MIN = 1, MAX = TREE_MAX_DEGREE,  };
 
 				Type_2_info _container[MAX + 1] { };
-				Genode::uint64_t    _top                { MIN - 1 };
+				uint64_t    _top                { MIN - 1 };
 
 			public:
 
@@ -302,10 +302,10 @@ class Tresor::Free_tree_channel
 					FIRST_USED_VALUE = 0,
 				};
 
-				Genode::uint64_t _head                              { FIRST_CONTAINER_IDX };
-				Genode::uint64_t _tail                              { FIRST_CONTAINER_IDX };
-				Type_2_info      _container[MAX_CONTAINER_IDX + 1] { };
-				Genode::uint64_t _used                              { FIRST_USED_VALUE };
+				uint64_t    _head                             { FIRST_CONTAINER_IDX };
+				uint64_t    _tail                             { FIRST_CONTAINER_IDX };
+				Type_2_info _container[MAX_CONTAINER_IDX + 1] { };
+				uint64_t    _used                             { FIRST_USED_VALUE };
 
 			public:
 
@@ -339,9 +339,9 @@ class Tresor::Free_tree_channel
 
 		State                   _state                                 { INVALID };
 		Request                 _request                               { };
-		Genode::uint64_t        _needed_blocks                         { 0 };
-		Genode::uint64_t        _found_blocks                          { 0 };
-		Genode::uint64_t        _exchanged_blocks                      { 0 };
+		uint64_t                _needed_blocks                         { 0 };
+		uint64_t                _found_blocks                          { 0 };
+		uint64_t                _exchanged_blocks                      { 0 };
 		Local_meta_tree_request _meta_tree_request                     { };
 		Local_cache_request     _cache_request                         { };
 		Block                   _cache_block_data                      { };
@@ -351,7 +351,7 @@ class Tresor::Free_tree_channel
 		Type_1_node_block       _level_n_node                          { };
 		Type_2_node_block       _level_0_node                          { };
 		Node_queue              _type_2_leafs                          { };
-		Genode::uint64_t        _vbd_degree_log_2                      { 0 };
+		uint64_t                _vbd_degree_log_2                      { 0 };
 		bool                    _wb_data_prim_success                  { false };
 
 		Type_1_node _root_node() const
@@ -359,7 +359,7 @@ class Tresor::Free_tree_channel
 			Type_1_node node { };
 			node.pba = *(Physical_block_address *)_request._ft_root_pba_ptr;
 			node.gen = *(Generation *)_request._ft_root_gen_ptr;
-			Genode::memcpy(&node.hash, (void *)_request._ft_root_hash_ptr, HASH_SIZE);
+			memcpy(&node.hash, (void *)_request._ft_root_hash_ptr, HASH_SIZE);
 			return node;
 		}
 };
@@ -441,7 +441,7 @@ class Tresor::Free_tree : public Module
 		                     bool            &progress);
 
 		bool _node_volatile(Type_1_node const &node,
-		                    Genode::uint64_t   gen);
+		                    uint64_t           gen);
 
 		void _execute_scan(Channel         &chan,
 		                   Snapshots const &active_snaps,
@@ -470,15 +470,15 @@ class Tresor::Free_tree : public Module
 
 		void submit_request(Module_request &req) override;
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
 		void execute(bool &) override;
 
-		bool _peek_generated_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_generated_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_generated_request(Module_request &mod_req) override;
 

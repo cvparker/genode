@@ -37,9 +37,9 @@ class Tresor::Block_allocator_request : public Module_request
 		friend class Block_allocator;
 		friend class Block_allocator_channel;
 
-		Type             _type    { INVALID };
-		Genode::uint64_t _blk_nr  { 0 };
-		bool             _success { false };
+		Type     _type    { INVALID };
+		uint64_t _blk_nr  { 0 };
+		bool     _success { false };
 
 	public:
 
@@ -48,13 +48,13 @@ class Tresor::Block_allocator_request : public Module_request
 		Block_allocator_request(unsigned long src_module_id,
 		                        unsigned long src_request_id);
 
-		static void create(void             *buf_ptr,
-		                   Genode::size_t    buf_size,
-		                   Genode::uint64_t  src_module_id,
-		                   Genode::uint64_t  src_request_id,
-		                   Genode::size_t    req_type);
+		static void create(void     *buf_ptr,
+		                   size_t    buf_size,
+		                   uint64_t  src_module_id,
+		                   uint64_t  src_request_id,
+		                   size_t    req_type);
 
-		Genode::uint64_t blk_nr() const { return _blk_nr; }
+		uint64_t blk_nr() const { return _blk_nr; }
 
 		Type type() const { return _type; }
 
@@ -67,7 +67,7 @@ class Tresor::Block_allocator_request : public Module_request
 		 ** Module_request **
 		 ********************/
 
-		void print(Genode::Output &out) const override;
+		void print(Output &out) const override;
 };
 
 
@@ -91,8 +91,8 @@ class Tresor::Block_allocator : public Module
 		using Request = Block_allocator_request;
 		using Channel = Block_allocator_channel;
 
-		Genode::uint64_t const _first_block;
-		Genode::uint64_t       _nr_of_blks;
+		uint64_t const _first_block;
+		uint64_t       _nr_of_blks;
 
 		enum { NR_OF_CHANNELS = 1 };
 
@@ -113,18 +113,18 @@ class Tresor::Block_allocator : public Module
 		 ** Module **
 		 ************/
 
-		bool _peek_completed_request(Genode::uint8_t *buf_ptr,
-		                             Genode::size_t   buf_size) override;
+		bool _peek_completed_request(uint8_t *buf_ptr,
+		                             size_t   buf_size) override;
 
 		void _drop_completed_request(Module_request &req) override;
 
 	public:
 
-		Block_allocator(Genode::uint64_t first_block);
+		Block_allocator(uint64_t first_block);
 
-		Genode::uint64_t first_block() const { return _first_block; }
+		uint64_t first_block() const { return _first_block; }
 
-		Genode::uint64_t nr_of_blks() const { return _nr_of_blks; }
+		uint64_t nr_of_blks() const { return _nr_of_blks; }
 
 		/************
 		 ** Module **

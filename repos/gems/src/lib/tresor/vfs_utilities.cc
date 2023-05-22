@@ -23,7 +23,7 @@ using namespace Vfs;
  **********************/
 
 Vfs::Vfs_handle &vfs_open(Vfs::Env                          &vfs_env,
-                          Genode::String<128>                path,
+                          String<128>                        path,
                           Vfs::Directory_service::Open_mode  mode)
 {
 	Vfs_handle *handle { nullptr };
@@ -48,8 +48,8 @@ Vfs_handle &vfs_open_wo(Vfs::Env    &vfs_env,
 }
 
 
-Vfs::Vfs_handle &vfs_open_rw(Vfs::Env            &vfs_env,
-                             Genode::String<128>  path)
+Vfs::Vfs_handle &vfs_open_rw(Vfs::Env    &vfs_env,
+                             String<128>  path)
 {
 	return vfs_open(vfs_env, path, Directory_service::OPEN_MODE_RDWR);
 }

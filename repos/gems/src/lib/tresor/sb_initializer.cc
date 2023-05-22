@@ -23,7 +23,6 @@
 #include <tresor/trust_anchor.h>
 #include <tresor/sb_initializer.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 
@@ -36,9 +35,9 @@ Sb_initializer_request::Sb_initializer_request(unsigned long src_module_id,
 
 void Sb_initializer_request::create(void             *buf_ptr,
                                     size_t            buf_size,
-                                    Genode::uint64_t  src_module_id,
-                                    Genode::uint64_t  src_request_id,
-                                    Genode::size_t    req_type,
+                                    uint64_t          src_module_id,
+                                    uint64_t          src_request_id,
+                                    size_t            req_type,
                                     Tree_level_index  vbd_max_level_idx,
                                     Tree_degree       vbd_max_child_idx,
                                     Number_of_leaves  vbd_nr_of_leaves,
@@ -128,8 +127,8 @@ void Sb_initializer::_populate_sb_slot(Channel &channel,
 }
 
 
-extern Genode::uint64_t block_allocator_first_block();
-extern Genode::uint64_t block_allocator_nr_of_blks();
+extern uint64_t block_allocator_first_block();
+extern uint64_t block_allocator_nr_of_blks();
 
 
 void Sb_initializer::_execute(Channel &channel,
@@ -335,8 +334,8 @@ void Sb_initializer::_mark_req_successful(Channel &channel,
 }
 
 
-bool Sb_initializer::_peek_completed_request(Genode::uint8_t *buf_ptr,
-                                              Genode::size_t   buf_size)
+bool Sb_initializer::_peek_completed_request(uint8_t *buf_ptr,
+                                             size_t   buf_size)
 {
 	for (Channel &channel : _channels) {
 		if (channel._state == Channel::COMPLETE) {
@@ -368,8 +367,8 @@ void Sb_initializer::_drop_completed_request(Module_request &req)
 }
 
 
-bool Sb_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
-                                             size_t           buf_size)
+bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
+                                             size_t   buf_size)
 {
 	using CS = Channel::State;
 

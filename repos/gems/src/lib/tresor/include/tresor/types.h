@@ -25,20 +25,22 @@
 
 namespace Tresor {
 
-	using Physical_block_address = Genode::uint64_t;
-	using Virtual_block_address  = Genode::uint64_t;
-	using Generation             = Genode::uint64_t;
-	using Generation_string      = Genode::String<21>;
-	using Number_of_leaves       = Genode::uint64_t;
-	using Number_of_blocks       = Genode::uint64_t;
-	using Tree_level_index       = Genode::uint32_t;
-	using Tree_node_index        = Genode::uint64_t;
-	using Tree_degree            = Genode::uint32_t;
-	using Tree_degree_log_2      = Genode::uint32_t;
-	using Key_id                 = Genode::uint32_t;
-	using Snapshot_id            = Genode::uint32_t;
-	using Snapshot_index         = Genode::uint32_t;
-	using Superblock_index       = Genode::uint8_t;
+	using namespace Genode;
+
+	using Physical_block_address = uint64_t;
+	using Virtual_block_address  = uint64_t;
+	using Generation             = uint64_t;
+	using Generation_string      = String<21>;
+	using Number_of_leaves       = uint64_t;
+	using Number_of_blocks       = uint64_t;
+	using Tree_level_index       = uint32_t;
+	using Tree_node_index        = uint64_t;
+	using Tree_degree            = uint32_t;
+	using Tree_degree_log_2      = uint32_t;
+	using Key_id                 = uint32_t;
+	using Snapshot_id            = uint32_t;
+	using Snapshot_index         = uint32_t;
+	using Superblock_index       = uint8_t;
 
 	enum { BLOCK_SIZE = 4096 };
 	enum { INVALID_KEY_ID = 0 };
@@ -52,8 +54,8 @@ namespace Tresor {
 	enum { HASH_SIZE = 32 };
 	enum { T1_NODE_STORAGE_SIZE = 64 };
 	enum { T2_NODE_STORAGE_SIZE = 64 };
-	enum { NR_OF_T2_NODES_PER_BLK = (Genode::size_t)BLOCK_SIZE / (Genode::size_t)T2_NODE_STORAGE_SIZE };
-	enum { NR_OF_T1_NODES_PER_BLK = (Genode::size_t)BLOCK_SIZE / (Genode::size_t)T1_NODE_STORAGE_SIZE };
+	enum { NR_OF_T2_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)T2_NODE_STORAGE_SIZE };
+	enum { NR_OF_T1_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)T1_NODE_STORAGE_SIZE };
 	enum { TREE_MAX_DEGREE_LOG_2 = 6 };
 	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
 	enum { TREE_MAX_LEVEL = 6 };
@@ -117,7 +119,6 @@ namespace Tresor {
 	                           Tree_level_index      lvl,
 	                           Tree_degree           degr)
 	{
-		using namespace Genode;
 		uint64_t const degr_log_2 { log2(degr) };
 		uint64_t const degr_mask  { ((uint64_t)1 << degr_log_2) - 1 };
 		uint64_t const vba_rshift { degr_log_2 * ((uint64_t)lvl - 1) };
@@ -137,7 +138,6 @@ namespace Tresor {
 	inline Tree_node_index t2_child_idx_for_vba(Virtual_block_address vba,
 	                                       Tree_degree           degr)
 	{
-		using namespace Genode;
 		uint64_t const degr_log_2 { log2(degr) };
 		uint64_t const degr_mask  { ((uint64_t)1 << degr_log_2) - 1 };
 		return (Tree_node_index)((uint64_t)vba & degr_mask);
@@ -147,12 +147,12 @@ namespace Tresor {
 
 struct Tresor::Byte_range
 {
-	Genode::uint8_t const *ptr;
-	Genode::size_t         size;
+	uint8_t const *ptr;
+	size_t         size;
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
-		using namespace Genode;
+		using Genode::print;
 
 		enum { MAX_BYTES_PER_LINE = 64 };
 		enum { MAX_BYTES_PER_WORD = 4 };
@@ -166,14 +166,13 @@ struct Tresor::Byte_range
 			for (size_t idx { 0 }; idx < size; idx++) {
 
 				if (idx % MAX_BYTES_PER_LINE == 0)
-					Genode::print(
-						out, "\n  ", Hex((uint16_t)idx, Hex::PREFIX, Hex::PAD),
-						": ");
+					print(out, "\n  ",
+					      Hex((uint16_t)idx, Hex::PREFIX, Hex::PAD), ": ");
 
 				else if (idx % MAX_BYTES_PER_WORD == 0)
-					Genode::print(out, " ");
+					print(out, " ");
 
-				Genode::print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+				print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
 			}
 
 		} else {
@@ -181,9 +180,9 @@ struct Tresor::Byte_range
 			for (size_t idx { 0 }; idx < size; idx++) {
 
 				if (idx % MAX_BYTES_PER_WORD == 0 && idx != 0)
-					Genode::print(out, " ");
+					print(out, " ");
 
-				Genode::print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
+				print(out, Hex(ptr[idx], Hex::OMIT_PREFIX, Hex::PAD));
 			}
 		}
 	}
@@ -201,9 +200,9 @@ struct Tresor::Superblock_info
 
 struct Tresor::Key_value
 {
-	Genode::uint8_t bytes[KEY_SIZE];
+	uint8_t bytes[KEY_SIZE];
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		Genode::print(out, Byte_range { bytes, KEY_SIZE });
 	}
@@ -221,16 +220,16 @@ __attribute__((packed));
 
 struct Tresor::Hash
 {
-	Genode::uint8_t bytes[HASH_SIZE] { };
+	uint8_t bytes[HASH_SIZE] { };
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		Genode::print(out, Byte_range { bytes, 4 }, "…");
 	}
 
 	bool operator == (Hash const &other) const
 	{
-		return !Genode::memcmp(bytes, other.bytes, sizeof(bytes));
+		return !memcmp(bytes, other.bytes, sizeof(bytes));
 	}
 
 	bool operator != (Hash const &other) const
@@ -246,7 +245,7 @@ struct Tresor::Type_1_node
 	Physical_block_address pba         { 0 };
 	Generation             gen         { 0 };
 	Hash                   hash        { };
-	Genode::uint8_t        padding[16] { 0 };
+	uint8_t                padding[16] { 0 };
 
 	bool valid() const
 	{
@@ -255,7 +254,7 @@ struct Tresor::Type_1_node
 			pba != node.pba || gen != node.gen || hash != node.hash;
 	}
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		Genode::print(out, "pba ", pba, " gen ", gen, " hash ", hash);
 	}
@@ -276,21 +275,21 @@ static_assert(sizeof(Tresor::Type_1_node_block) == Tresor::BLOCK_SIZE);
 
 struct Tresor::Type_2_node
 {
-	Genode::uint64_t pba         { 0 };
-	Genode::uint64_t last_vba    { 0 };
-	Genode::uint64_t alloc_gen   { 0 };
-	Genode::uint64_t free_gen    { 0 };
-	Genode::uint32_t last_key_id { 0 };
-	Genode::uint8_t  reserved    { 0 };
-	Genode::uint8_t  padding[27] { 0 };
+	uint64_t pba         { 0 };
+	uint64_t last_vba    { 0 };
+	uint64_t alloc_gen   { 0 };
+	uint64_t free_gen    { 0 };
+	uint32_t last_key_id { 0 };
+	uint8_t  reserved    { 0 };
+	uint8_t  padding[27] { 0 };
 
 	bool valid() const
 	{
 		Type_2_node node { };
-		return Genode::memcmp(this, &node, sizeof(node)) != 0;
+		return memcmp(this, &node, sizeof(node)) != 0;
 	}
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		Genode::print(
 			out, "pba ", pba, " last_vba ", last_vba, " alloc_gen ",
@@ -314,9 +313,9 @@ static_assert(sizeof(Tresor::Type_2_node_block) == Tresor::BLOCK_SIZE);
 
 struct Tresor::Block
 {
-	Genode::uint8_t bytes[BLOCK_SIZE] { };
+	uint8_t bytes[BLOCK_SIZE] { };
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		Genode::print(out, Byte_range { bytes, 16 }, "…");
 	}
@@ -334,14 +333,15 @@ struct Tresor::Snapshot
 	bool                   valid        { false };
 	Snapshot_id            id           { MAX_SNAP_ID };
 	bool                   keep         { false };
-	Genode::uint8_t        padding[6]   { 0 };
+	uint8_t                padding[6]   { 0 };
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		if (valid)
-			Genode::print(out, "pba ", (Physical_block_address)pba,
-			              " gen ", (Generation)gen, " hash ", hash,
-			              " leaves ", nr_of_leaves, " max_lvl ", max_level);
+			Genode::print(
+				out, "pba ", (Physical_block_address)pba, " gen ",
+				(Generation)gen, " hash ", hash, " leaves ", nr_of_leaves,
+				" max_lvl ", max_level);
 		else
 			Genode::print(out, "<invalid>");
 	}
@@ -430,7 +430,7 @@ __attribute__((packed));
 
 struct Tresor::Superblock
 {
-	enum State : Genode::uint8_t
+	enum State : uint8_t
 	{
 		INVALID       = 0,
 		NORMAL        = 1,
@@ -463,7 +463,7 @@ struct Tresor::Superblock
 	Tree_level_index       meta_max_level          { 0 };               // offset 3697
 	Tree_degree            meta_degree             { TREE_MIN_DEGREE }; // offset 3701
 	Number_of_leaves       meta_leaves             { 0 };               // offset 3705
-	Genode::uint8_t        padding[383]            { 0 };               // offset 3713
+	uint8_t                padding[383]            { 0 };               // offset 3713
 
 	bool valid() const { return state != INVALID; }
 
@@ -477,7 +477,7 @@ struct Tresor::Superblock
 		case EXTENDING_FT:  return "EXTENDING_FT"; }
 	}
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		Genode::print(
 			out, "state ", state_to_str(state), " last_secured_gen ",
@@ -518,7 +518,7 @@ struct Tresor::Level_indent
 	Tree_level_index lvl;
 	Tree_level_index max_lvl;
 
-	void print(Genode::Output &out) const
+	void print(Output &out) const
 	{
 		for (Tree_level_index i { 0 }; i < max_lvl + 1 - lvl; i++)
 			Genode::print(out, "  ");

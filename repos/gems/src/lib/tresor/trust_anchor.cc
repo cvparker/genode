@@ -17,7 +17,6 @@
 /* tresor includes */
 #include <tresor/trust_anchor.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 

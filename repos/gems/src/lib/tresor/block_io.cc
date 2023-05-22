@@ -20,7 +20,6 @@
 #include <tresor/block_io.h>
 #include <tresor/sha256_4k_hash.h>
 
-using namespace Genode;
 using namespace Tresor;
 
 
@@ -201,7 +200,7 @@ void Block_io::_execute_read(Channel &channel,
 			progress = true;
 			return;
 		}
-		_vfs_handle.seek(req._pba * Tresor::BLOCK_SIZE +
+		_vfs_handle.seek(req._pba * BLOCK_SIZE +
 		                 channel._nr_of_processed_bytes);
 
 		if (!_vfs_handle.fs().queue_read(&_vfs_handle, channel._nr_of_remaining_bytes)) {
@@ -285,7 +284,7 @@ void Block_io::_execute_read_client_data(Channel &channel,
 	switch (channel._state) {
 	case Channel::PENDING:
 
-		_vfs_handle.seek(req._pba * Tresor::BLOCK_SIZE +
+		_vfs_handle.seek(req._pba * BLOCK_SIZE +
 		                 channel._nr_of_processed_bytes);
 
 		if (!_vfs_handle.fs().queue_read(&_vfs_handle, channel._nr_of_remaining_bytes)) {
@@ -379,7 +378,7 @@ void Block_io::_execute_write_client_data(Channel &channel,
 			return;
 		}
 		calc_sha256_4k_hash((void *)channel._blk_buf, (void *)req._hash_ptr);
-		_vfs_handle.seek(req._pba * Tresor::BLOCK_SIZE +
+		_vfs_handle.seek(req._pba * BLOCK_SIZE +
 		                 channel._nr_of_processed_bytes);
 
 		channel._state = Channel::IN_PROGRESS;
@@ -450,7 +449,7 @@ void Block_io::_execute_write(Channel &channel,
 	switch (channel._state) {
 	case Channel::PENDING:
 
-		_vfs_handle.seek(req._pba * Tresor::BLOCK_SIZE +
+		_vfs_handle.seek(req._pba * BLOCK_SIZE +
 		                 channel._nr_of_processed_bytes);
 
 		channel._state = Channel::IN_PROGRESS;
@@ -569,7 +568,7 @@ void Block_io::execute(bool &progress)
 		if (channel._state == Channel::SUBMITTED) {
 			channel._state = Channel::PENDING;
 			channel._nr_of_processed_bytes = 0;
-			channel._nr_of_remaining_bytes = req._blk_count * Tresor::BLOCK_SIZE;
+			channel._nr_of_remaining_bytes = req._blk_count * BLOCK_SIZE;
 		}
 		switch (req._type) {
 		case Request::READ:              _execute_read(channel, progress);              break;

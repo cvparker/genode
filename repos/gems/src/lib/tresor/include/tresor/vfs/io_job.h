@@ -21,12 +21,14 @@
 
 namespace Util {
 
+	using namespace Genode;
+
 	struct Io_job
 	{
 		struct Buffer
 		{
-			char  *base;
-			Genode::size_t size;
+			char   *base;
+			size_t  size;
 		};
 
 		enum class Operation { INVALID, READ, WRITE, SYNC };
@@ -43,8 +45,8 @@ namespace Util {
 			}
 		}
 
-		struct Unsupported_Operation : Genode::Exception { };
-		struct Invalid_state         : Genode::Exception { };
+		struct Unsupported_Operation : Exception { };
+		struct Invalid_state         : Exception { };
 
 		enum State { PENDING, IN_PROGRESS, COMPLETE, };
 
@@ -73,19 +75,16 @@ namespace Util {
 
 		enum class Partial_result { ALLOW, DENY };
 
-		Vfs::Vfs_handle &_handle;
-
-		Operation   const  _op;
-		State              _state;
-		char              *_data;
+		Vfs::Vfs_handle        &_handle;
+		Operation        const  _op;
+		State                   _state;
+		char                   *_data;
 		Vfs::file_offset const  _base_offset;
 		Vfs::file_offset        _current_offset;
-		Genode::size_t             _current_count;
-
-		bool const _allow_partial;
-
-		bool _success;
-		bool _complete;
+		size_t                  _current_count;
+		bool             const  _allow_partial;
+		bool                    _success;
+		bool                    _complete;
 
 		bool _read()
 		{
@@ -107,9 +106,9 @@ namespace Util {
 				using Result = Vfs::File_io_service::Read_result;
 
 				bool completed = false;
-				Genode::size_t out = 0;
+				size_t out = 0;
 
-				Genode::Byte_range_ptr const dst { _data + _current_offset, _current_count };
+				Byte_range_ptr const dst { _data + _current_offset, _current_count };
 				Result const result = _handle.fs().complete_read(&_handle, dst, out);
 
 				if (result == Result::READ_QUEUED
@@ -166,9 +165,9 @@ namespace Util {
 				using Result = Vfs::File_io_service::Write_result;
 
 				bool completed = false;
-				Genode::size_t out = 0;
+				size_t out = 0;
 
-				Genode::Const_byte_range_ptr const src { _data + _current_offset, _current_count };
+				Const_byte_range_ptr const src { _data + _current_offset, _current_count };
 				Result const result = _handle.fs().write(&_handle, src, out);
 
 				switch (result) {
@@ -274,7 +273,7 @@ namespace Util {
 		bool succeeded() const { return _success; }
 		Operation op() const { return _op; }
 
-		void print(Genode::Output &out) const
+		void print(Output &out) const
 		{
 			Genode::print(out, "(", to_string(_op), ")",
 				" state: ",          _state_to_string(_state),
@@ -296,7 +295,7 @@ namespace Util {
 			}
 		}
 
-		Genode::size_t current_offset() const { return _current_offset; }
+		size_t current_offset() const { return _current_offset; }
 	};
 }
 
