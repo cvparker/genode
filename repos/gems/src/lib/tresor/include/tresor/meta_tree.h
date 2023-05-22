@@ -37,18 +37,17 @@ class Tresor::Meta_tree_request : public Module_request
 		friend class Meta_tree;
 		friend class Meta_tree_channel;
 
-		Type             _type                { INVALID };
-		Genode::uint8_t  _prim[PRIM_BUF_SIZE] { 0 };
-		Genode::addr_t   _mt_root_pba_ptr     { 0 };
-		Genode::addr_t   _mt_root_gen_ptr     { 0 };
-		Genode::addr_t   _mt_root_hash_ptr    { 0 };
-		Genode::uint64_t _mt_max_lvl          { 0 };
-		Genode::uint64_t _mt_edges            { 0 };
-		Genode::uint64_t _mt_leaves           { 0 };
-		Genode::uint64_t _current_gen         { 0 };
-		Genode::uint64_t _old_pba             { INVALID_PBA };
-		Genode::uint64_t _new_pba             { INVALID_PBA };
-		bool             _success             { false };
+		Type             _type             { INVALID };
+		Genode::addr_t   _mt_root_pba_ptr  { 0 };
+		Genode::addr_t   _mt_root_gen_ptr  { 0 };
+		Genode::addr_t   _mt_root_hash_ptr { 0 };
+		Genode::uint64_t _mt_max_lvl       { 0 };
+		Genode::uint64_t _mt_edges         { 0 };
+		Genode::uint64_t _mt_leaves        { 0 };
+		Genode::uint64_t _current_gen      { 0 };
+		Genode::uint64_t _old_pba          { INVALID_PBA };
+		Genode::uint64_t _new_pba          { INVALID_PBA };
+		bool             _success          { false };
 
 	public:
 
@@ -62,8 +61,6 @@ class Tresor::Meta_tree_request : public Module_request
 		                   Genode::uint64_t  src_module_id,
 		                   Genode::uint64_t  src_request_id,
 		                   Genode::size_t    req_type,
-		                   void             *prim_ptr,
-		                   Genode::size_t    prim_size,
 		                   void             *mt_root_pba_ptr,
 		                   void             *mt_root_gen_ptr,
 		                   void             *mt_root_hash_ptr,
@@ -72,8 +69,6 @@ class Tresor::Meta_tree_request : public Module_request
 		                   Genode::uint64_t  mt_leaves,
 		                   Genode::uint64_t  curr_gen,
 		                   Genode::uint64_t  old_pba);
-
-		void *prim_ptr() { return (void *)&_prim; }
 
 		Genode::uint64_t new_pba() { return _new_pba; }
 

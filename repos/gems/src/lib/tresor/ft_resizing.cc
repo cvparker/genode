@@ -743,7 +743,6 @@ bool Ft_resizing::_peek_generated_request(uint8_t *buf_ptr,
 
 			Meta_tree_request::create(
 				buf_ptr, buf_size, FT_RESIZING, id, Meta_tree_request::UPDATE,
-				nullptr, 0,
 				(void *)req._mt_root_pba_ptr,
 				(void *)req._mt_root_gen_ptr,
 				(void *)req._mt_root_hash_ptr,

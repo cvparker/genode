@@ -40,8 +40,6 @@ void Meta_tree_request::create(void     *buf_ptr,
                                uint64_t  src_module_id,
                                uint64_t  src_request_id,
                                size_t    req_type,
-                               void     *prim_ptr,
-                               size_t    prim_size,
                                void     *mt_root_pba_ptr,
                                void     *mt_root_gen_ptr,
                                void     *mt_root_hash_ptr,
@@ -61,14 +59,6 @@ void Meta_tree_request::create(void     *buf_ptr,
 	req._mt_leaves        = mt_leaves;
 	req._current_gen      = curr_gen;
 	req._old_pba          = old_pba;
-	if (prim_ptr != nullptr) {
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-		memcpy(&req._prim, prim_ptr, prim_size);
-	}
 	if (sizeof(req) > buf_size) {
 		class Exception_2 { };
 		throw Exception_2 { };

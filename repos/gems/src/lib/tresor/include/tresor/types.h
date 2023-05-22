@@ -44,7 +44,6 @@ namespace Tresor {
 	enum { INVALID_KEY_ID = 0 };
 	enum { INVALID_GENERATION = 0 };
 	enum { INITIAL_GENERATION = 0 };
-	enum { PRIM_BUF_SIZE = 128 };
 	enum { MAX_PBA = 0xffff'ffff'ffff'ffff };
 	enum { INVALID_PBA = MAX_PBA };
 	enum { INVALID_NODE_INDEX = 0xff };

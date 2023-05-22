@@ -836,7 +836,6 @@ bool Free_tree::_peek_generated_request(uint8_t *buf_ptr,
 			}
 			Meta_tree_request::create(
 				buf_ptr, buf_size, FREE_TREE, id, mt_req_type,
-				nullptr, 0,
 				(void*)channel._request._mt_root_pba_ptr,
 				(void*)channel._request._mt_root_gen_ptr,
 				(void*)channel._request._mt_root_hash_ptr,
