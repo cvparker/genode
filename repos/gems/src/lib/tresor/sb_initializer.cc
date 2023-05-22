@@ -402,7 +402,7 @@ bool Sb_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 
 			Ft_initializer_request::create(
 				buf_ptr, buf_size, SB_INITIALIZER, id,
-				ft_initializer_req_type, nullptr, 0,
+				ft_initializer_req_type,
 				channel._request._ft_max_level_idx,
 				channel._request._ft_max_child_idx - 1,
 				channel._request._ft_nr_of_leaves);
@@ -416,7 +416,7 @@ bool Sb_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 
 			Ft_initializer_request::create(
 				buf_ptr, buf_size, SB_INITIALIZER, id,
-				ft_initializer_req_type, nullptr, 0,
+				ft_initializer_req_type,
 				channel._request._ft_max_level_idx,
 				channel._request._ft_max_child_idx - 1,
 				channel._request._ft_nr_of_leaves);
