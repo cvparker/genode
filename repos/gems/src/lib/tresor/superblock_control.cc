@@ -1481,7 +1481,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::CREATE_KEY, nullptr, 0, nullptr,
+				Trust_anchor_request::CREATE_KEY, nullptr,
 				nullptr, nullptr, nullptr);
 
 			return 1;
@@ -1491,7 +1491,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::ENCRYPT_KEY, nullptr, 0,
+				Trust_anchor_request::ENCRYPT_KEY,
 				&chan._key_plaintext.value, nullptr, nullptr, nullptr);
 
 			return 1;
@@ -1500,7 +1500,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::DECRYPT_KEY, nullptr, 0,
+				Trust_anchor_request::DECRYPT_KEY,
 				nullptr, &chan._sb_ciphertext().current_key.value,
 				nullptr, nullptr);
 
@@ -1510,7 +1510,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::DECRYPT_KEY, nullptr, 0,
+				Trust_anchor_request::DECRYPT_KEY,
 				nullptr, &chan._sb_ciphertext().previous_key.value,
 				nullptr, nullptr);
 
@@ -1520,7 +1520,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::SECURE_SUPERBLOCK, nullptr, 0,
+				Trust_anchor_request::SECURE_SUPERBLOCK,
 				nullptr, nullptr, nullptr, &chan._hash);
 
 			return 1;
@@ -1529,7 +1529,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Trust_anchor_request::GET_LAST_SB_HASH, nullptr, 0,
+				Trust_anchor_request::GET_LAST_SB_HASH,
 				nullptr, nullptr, nullptr, nullptr);
 
 			return 1;

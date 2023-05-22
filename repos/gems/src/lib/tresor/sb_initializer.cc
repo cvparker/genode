@@ -464,7 +464,7 @@ bool Sb_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SB_INITIALIZER, id,
-				trust_anchor_req_type, 0, 0,
+				trust_anchor_req_type,
 				nullptr, nullptr, nullptr, nullptr);
 
 			return true;
@@ -476,7 +476,7 @@ bool Sb_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SB_INITIALIZER, id,
-				trust_anchor_req_type, 0, 0,
+				trust_anchor_req_type,
 				(void*)&channel._key_plain.value,
 				nullptr, nullptr, nullptr);
 
@@ -489,7 +489,7 @@ bool Sb_initializer::_peek_generated_request(Genode::uint8_t *buf_ptr,
 
 			Trust_anchor_request::create(
 				buf_ptr, buf_size, SB_INITIALIZER, id,
-				trust_anchor_req_type, 0, 0,
+				trust_anchor_req_type,
 				nullptr, nullptr, nullptr,
 				(void*)&channel._sb_hash);
 

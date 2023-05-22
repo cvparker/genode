@@ -672,7 +672,7 @@ class Command_pool : public Module {
 						Trust_anchor_request::create(
 							buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
 							(unsigned long)Trust_anchor_request::INITIALIZE,
-							nullptr, 0, nullptr, nullptr, node.passphrase().string(),
+							nullptr, nullptr, node.passphrase().string(),
 							nullptr);
 
 						return true;

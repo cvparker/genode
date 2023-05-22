@@ -40,7 +40,6 @@ class Tresor::Trust_anchor_request : public Module_request
 		friend class Trust_anchor_channel;
 
 		Type            _type                     { INVALID };
-		Genode::uint8_t _prim[PRIM_BUF_SIZE]      { 0 };
 		Genode::uint8_t _key_plaintext[KEY_SIZE]  { 0 };
 		Genode::uint8_t _key_ciphertext[KEY_SIZE] { 0 };
 		Hash            _hash                     { };
@@ -59,14 +58,11 @@ class Tresor::Trust_anchor_request : public Module_request
 		                   Genode::uint64_t  src_module_id,
 		                   Genode::uint64_t  src_request_id,
 		                   Genode::size_t    req_type,
-		                   void             *prim_ptr,
-		                   Genode::size_t            prim_size,
 		                   void             *key_plaintext_ptr,
 		                   void             *key_ciphertext_ptr,
 		                   char const       *passphrase_ptr,
 		                   void             *hash_ptr);
 
-		void *prim_ptr() { return (void *)&_prim; }
 		void *hash_ptr() { return (void *)&_hash; }
 		void *key_plaintext_ptr() { return (void *)&_key_plaintext; }
 		void *key_ciphertext_ptr() { return (void *)&_key_ciphertext; }

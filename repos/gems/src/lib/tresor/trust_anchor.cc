@@ -30,8 +30,6 @@ void Trust_anchor_request::create(void       *buf_ptr,
                                   uint64_t    src_module_id,
                                   uint64_t    src_request_id,
                                   size_t      req_type,
-                                  void       *prim_ptr,
-                                  size_t      prim_size,
                                   void       *key_plaintext_ptr,
                                   void       *key_ciphertext_ptr,
                                   char const *passphrase_ptr,
@@ -40,14 +38,6 @@ void Trust_anchor_request::create(void       *buf_ptr,
 	Trust_anchor_request req { src_module_id, src_request_id };
 	req._type = (Type)req_type;
 	req._passphrase_ptr = (addr_t)passphrase_ptr;
-	if (prim_ptr != nullptr) {
-		if (prim_size > sizeof(req._prim)) {
-			error(prim_size, " ", sizeof(req._prim));
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-		memcpy(&req._prim, prim_ptr, prim_size);
-	}
 	if (key_plaintext_ptr != nullptr)
 		memcpy(
 			&req._key_plaintext, key_plaintext_ptr,
