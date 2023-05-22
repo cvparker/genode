@@ -39,7 +39,6 @@ class Tresor::Virtual_block_device_request : public Module_request
 		friend class Virtual_block_device_channel;
 
 		Type                   _type                    { INVALID };
-		Genode::uint8_t        _prim[PRIM_BUF_SIZE]     { 0 };
 		Virtual_block_address  _vba                     { 0 };
 		Snapshots              _snapshots               { };
 		Tree_degree            _snapshots_degree        { 0 };
@@ -81,8 +80,6 @@ class Tresor::Virtual_block_device_request : public Module_request
 		                   Genode::uint64_t       src_module_id,
 		                   Genode::uint64_t       src_request_id,
 		                   Genode::size_t         req_type,
-		                   void                  *prim_ptr,
-		                   Genode::size_t         prim_size,
 		                   Genode::uint64_t       client_req_offset,
 		                   Genode::uint64_t       client_req_tag,
 		                   Generation             last_secured_generation,
@@ -119,8 +116,6 @@ class Tresor::Virtual_block_device_request : public Module_request
 		Number_of_blocks nr_of_pbas() const { return _nr_of_pbas; }
 
 		Number_of_leaves nr_of_leaves() const { return _nr_of_leaves; }
-
-		void *prim_ptr() { return (void *)&_prim; }
 
 		Snapshot *snapshot_ptr() { return &_snapshots.items[0]; }
 

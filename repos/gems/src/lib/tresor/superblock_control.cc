@@ -1579,7 +1579,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Virtual_block_device_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Virtual_block_device_request::READ_VBA, nullptr, 0,
+				Virtual_block_device_request::READ_VBA,
 				req._client_req_offset, req._client_req_tag,
 				_sb.last_secured_generation,
 				(addr_t)&_sb.free_number,
@@ -1610,7 +1610,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Virtual_block_device_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Virtual_block_device_request::WRITE_VBA, nullptr, 0,
+				Virtual_block_device_request::WRITE_VBA,
 				req._client_req_offset, req._client_req_tag,
 				_sb.last_secured_generation,
 				(addr_t)&_sb.free_number,
@@ -1672,7 +1672,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Virtual_block_device_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Virtual_block_device_request::REKEY_VBA, nullptr, 0,
+				Virtual_block_device_request::REKEY_VBA,
 				req._client_req_offset, req._client_req_tag,
 				_sb.last_secured_generation,
 				(addr_t)&_sb.free_number,
@@ -1705,7 +1705,7 @@ bool Superblock_control::_peek_generated_request(uint8_t *buf_ptr,
 
 			Virtual_block_device_request::create(
 				buf_ptr, buf_size, SUPERBLOCK_CONTROL, id,
-				Virtual_block_device_request::VBD_EXTENSION_STEP, nullptr, 0,
+				Virtual_block_device_request::VBD_EXTENSION_STEP,
 				req._client_req_offset, req._client_req_tag,
 				_sb.last_secured_generation,
 				(addr_t)&_sb.free_number,

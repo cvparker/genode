@@ -47,8 +47,6 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
                                           Genode::uint64_t       src_module_id,
                                           Genode::uint64_t       src_request_id,
                                           Genode::size_t         req_type,
-                                          void                  *prim_ptr,
-                                          Genode::size_t         prim_size,
                                           Genode::uint64_t       client_req_offset,
                                           Genode::uint64_t       client_req_tag,
                                           Generation             last_secured_generation,
@@ -117,18 +115,11 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
 		class Exception_3 { };
 		throw Exception_3 { };
 	}
-	req._snapshots_degree        = snapshots_degree;
-	req._client_req_offset       = client_req_offset;
-	req._client_req_tag          = client_req_tag;
-	req._curr_gen                = current_gen;
+	req._snapshots_degree  = snapshots_degree;
+	req._client_req_offset = client_req_offset;
+	req._client_req_tag    = client_req_tag;
+	req._curr_gen          = current_gen;
 
-	if (prim_ptr != nullptr) {
-		if (prim_size > sizeof(req._prim)) {
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-		memcpy(&req._prim, prim_ptr, prim_size);
-	}
 	if (sizeof(req) > buf_size) {
 		class Exception_2 { };
 		throw Exception_2 { };
