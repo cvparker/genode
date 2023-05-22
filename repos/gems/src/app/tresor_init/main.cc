@@ -133,7 +133,6 @@ class Main
 			Sb_initializer_request::create(
 				buf_ptr, buf_size, COMMAND_POOL, 0,
 				(unsigned long)Sb_initializer_request::INIT,
-				nullptr, 0,
 				(Tree_level_index)_cfg->vbd_nr_of_lvls() - 1,
 				(Tree_degree)_cfg->vbd_nr_of_children(),
 				_cfg->vbd_nr_of_leafs(),

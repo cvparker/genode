@@ -34,26 +34,24 @@ Sb_initializer_request::Sb_initializer_request(unsigned long src_module_id,
 { }
 
 
-void Sb_initializer_request::create(void                  *buf_ptr,
-                                    size_t                 buf_size,
-                                    Genode::uint64_t       src_module_id,
-                                    Genode::uint64_t       src_request_id,
-                                    Genode::size_t         req_type,
-                                    void                  *prim_ptr,
-                                    Genode::size_t         prim_size,
-                                    Tree_level_index       vbd_max_level_idx,
-                                    Tree_degree            vbd_max_child_idx,
-                                    Number_of_leaves       vbd_nr_of_leaves,
-                                    Tree_level_index       ft_max_level_idx,
-                                    Tree_degree            ft_max_child_idx,
-                                    Number_of_leaves       ft_nr_of_leaves,
-                                    Tree_level_index       mt_max_level_idx,
-                                    Tree_degree            mt_max_child_idx,
-                                    Number_of_leaves       mt_nr_of_leaves)
+void Sb_initializer_request::create(void             *buf_ptr,
+                                    size_t            buf_size,
+                                    Genode::uint64_t  src_module_id,
+                                    Genode::uint64_t  src_request_id,
+                                    Genode::size_t    req_type,
+                                    Tree_level_index  vbd_max_level_idx,
+                                    Tree_degree       vbd_max_child_idx,
+                                    Number_of_leaves  vbd_nr_of_leaves,
+                                    Tree_level_index  ft_max_level_idx,
+                                    Tree_degree       ft_max_child_idx,
+                                    Number_of_leaves  ft_nr_of_leaves,
+                                    Tree_level_index  mt_max_level_idx,
+                                    Tree_degree       mt_max_child_idx,
+                                    Number_of_leaves  mt_nr_of_leaves)
 {
 	Sb_initializer_request req { src_module_id, src_request_id };
-	req._type = (Type)req_type;
 
+	req._type              = (Type)req_type;
 	req._vbd_max_level_idx = vbd_max_level_idx;
 	req._vbd_max_child_idx = vbd_max_child_idx;
 	req._vbd_nr_of_leaves  = vbd_nr_of_leaves;
@@ -63,13 +61,6 @@ void Sb_initializer_request::create(void                  *buf_ptr,
 	req._mt_max_level_idx  = mt_max_level_idx;
 	req._mt_max_child_idx  = mt_max_child_idx;
 	req._mt_nr_of_leaves   = mt_nr_of_leaves;
-
-	if (prim_size > sizeof(req._prim)) {
-		error(prim_size, " ", sizeof(req._prim));
-		class Bad_size_1 { };
-		throw Bad_size_1 { };
-	}
-	memcpy(&req._prim, prim_ptr, prim_size);
 
 	if (sizeof(req) > buf_size) {
 		class Bad_size_0 { };

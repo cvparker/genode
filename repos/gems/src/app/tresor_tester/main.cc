@@ -695,7 +695,6 @@ class Command_pool : public Module {
 					Sb_initializer_request::create(
 						buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
 						(unsigned long)Sb_initializer_request::INIT,
-						nullptr, 0,
 						(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
 						(Tree_degree)cfg.vbd_nr_of_children(),
 						cfg.vbd_nr_of_leafs(),
