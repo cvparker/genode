@@ -32,20 +32,9 @@ extern Wifi::Socket_call socket_call;
 
 extern "C" {
 
-unsigned int wifi_ifindex(char const *ifname);
+unsigned int wifi_ifindex(const char *ifname);
 char const * wifi_ifname(void);
 
-enum {
-	MSG_EXCESSIVE, MSG_MSGDUMP, MSG_DEBUG, MSG_INFO, MSG_WARNING, MSG_ERROR
-};
-
-void wpa_printf(int level, const char *fmt, ...);
-
-/* need to define these specially as Linux and BSD disagree on them */
-enum {
-	LX_SIOCGIFFLAGS = 0x8913,
-	LX_SIOCSIFFLAGS = 0x8914,
-};
 
 int ioctl(int fd, unsigned long request, ...)
 {
@@ -68,19 +57,15 @@ int ioctl(int fd, unsigned long request, ...)
 		socket_call.get_mac_address((unsigned char*)ifr->ifr_hwaddr.sa_data);
 		return 0;
 	case SIOCGIFFLAGS:
-		return socket_call.ioctl(LX_SIOCGIFFLAGS, (void *)ifr);
+		return socket_call.ioctl(Wifi::Socket_call::LX_SIOCGIFFLAGS, (void *)ifr);
 	case SIOCSIFFLAGS:
-		return socket_call.ioctl(LX_SIOCSIFFLAGS, (void *)ifr);
+		return socket_call.ioctl(Wifi::Socket_call::LX_SIOCSIFFLAGS, (void *)ifr);
 	}
 
 	Genode::warning("ioctl: request ", request, " not handled by switch");
 	return -1;
 }
 
-unsigned int wifi_ifindex(const char *ifname)
-{
-	return socket_call.get_wifi_ifindex(ifname);
-}
 
 int linux_set_iface_flags(int sock, const char *ifname, int dev_up)
 {
@@ -97,8 +82,8 @@ int linux_set_iface_flags(int sock, const char *ifname, int dev_up)
 	if ( ret != 0) {
 		if (ret > 0)
 			ret = -ret;
-		wpa_printf(MSG_ERROR, "Could not read interface %s flags: %d",
-		           ifname, ret);
+		Genode::error("Could not read interface ", ifname,
+		              " flags: ", ret);
 		return ret;
 	}
 
@@ -116,8 +101,9 @@ int linux_set_iface_flags(int sock, const char *ifname, int dev_up)
 	if ( ret != 0) {
 		if (ret > 0)
 			ret = -ret;
-		wpa_printf(MSG_ERROR, "Could not set interface %s flags (%s): %d",
-		           ifname, dev_up ? "UP" : "DOWN", ret);
+		Genode::error("Could not set interface ", ifname,
+		              " flags (", dev_up ? "UP" : "DOWN", "): ",
+		              ret);
 		return ret;
 	}
 	return 0;
@@ -139,8 +125,8 @@ int linux_iface_up(int sock, const char *ifname)
 	if (ret != 0) {
 		if (ret > 0)
 			ret = -ret;
-		wpa_printf(MSG_ERROR, "Could not read interface %s flags: %d",
-		           ifname, ret);
+		Genode::error("Could not query interface ", ifname,
+		              " flags: ", ret);
 		return ret;
 	}
 

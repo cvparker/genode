@@ -98,6 +98,15 @@ struct Wifi::Socket_call
 	 */
 	void get_mac_address(unsigned char *addr);
 	unsigned int get_wifi_ifindex(const char *ifname);
+
+	/*
+	 * The ioctl request value differ between FreeBSD
+	 * and Linux.
+	 */
+	enum : unsigned long {
+		LX_SIOCGIFFLAGS = 0x8913,
+		LX_SIOCSIFFLAGS = 0x8914,
+	};
 	int ioctl(unsigned long request, void *ifr);
 };
 

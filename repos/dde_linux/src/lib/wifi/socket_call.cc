@@ -548,6 +548,18 @@ void wifi_kick_socketcall()
 Wifi::Socket_call socket_call;
 
 
+extern "C" unsigned int wifi_ifindex(const char *ifname)
+{
+	return socket_call.get_wifi_ifindex(ifname);
+}
+
+
+extern "C" char const *wifi_ifname(void)
+{
+	return "wlan0";
+}
+
+
 /***************************
  ** Socket_call interface **
  ***************************/

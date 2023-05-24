@@ -37,16 +37,19 @@
 #include "scan.h"
 
 
-void nl_set_wpa_ctrl_fd(void);
-
-/* these are only needed for wpa_supplicant_match_existing */
-/* dummy implementation is OK */
-static struct if_nameindex if_nameindex_empty = { 0, NULL };
+/*
+ * These are only needed for wpa_supplicant_match_existing,
+ * dummy implementation is OK.
+ */
 struct if_nameindex *if_nameindex(void)
 {
-	return &if_nameindex_empty;
+	static struct if_nameindex empty = { 0, NULL };
+	return &empty;
 }
+
+
 void if_freenameindex(struct if_nameindex *ptr) { }
+
 
 int wpa_main(void)
 {
