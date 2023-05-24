@@ -26,12 +26,15 @@ namespace Tresor {
 
 	using namespace Genode;
 
+	using Module_id = uint64_t;
+	using Module_request_id = uint64_t;
+
 	enum {
 		INVALID_MODULE_ID = ~0UL,
 		INVALID_MODULE_REQUEST_ID = ~0UL,
 	};
 
-	enum Module_id : unsigned long
+	enum Module_id_enum : Module_id
 	{
 		CRYPTO               = 0,
 		CLIENT_DATA          = 1,
@@ -55,7 +58,7 @@ namespace Tresor {
 		MAX_MODULE_ID        = 18,
 	};
 
-	char const *module_name(unsigned long module_id);
+	char const *module_name(Module_id module_id);
 
 	class Module_request;
 	class Module;
@@ -67,20 +70,20 @@ class Tresor::Module_request : public Interface
 {
 	private:
 
-		unsigned long _src_module_id  { INVALID_MODULE_ID };
-		unsigned long _src_request_id { INVALID_MODULE_REQUEST_ID };
-		unsigned long _dst_module_id  { INVALID_MODULE_ID };
-		unsigned long _dst_request_id { INVALID_MODULE_REQUEST_ID };
+		Module_id         _src_module_id  { INVALID_MODULE_ID };
+		Module_request_id _src_request_id { INVALID_MODULE_REQUEST_ID };
+		Module_id         _dst_module_id  { INVALID_MODULE_ID };
+		Module_request_id _dst_request_id { INVALID_MODULE_REQUEST_ID };
 
 	public:
 
 		Module_request() { }
 
-		Module_request(unsigned long src_module_id,
-		               unsigned long src_request_id,
-		               unsigned long dst_module_id);
+		Module_request(Module_id         src_module_id,
+		               Module_request_id src_request_id,
+		               Module_id         dst_module_id);
 
-		void dst_request_id(unsigned long id) { _dst_request_id = id; }
+		void dst_request_id(Module_request_id id) { _dst_request_id = id; }
 
 		String<32> src_request_id_str() const;
 
@@ -95,10 +98,10 @@ class Tresor::Module_request : public Interface
 		 ** Accessors **
 		 ***************/
 
-		unsigned long src_module_id() const { return _src_module_id; }
-		unsigned long src_request_id() const { return _src_request_id; }
-		unsigned long dst_module_id() const { return _dst_module_id; }
-		unsigned long dst_request_id() const { return _dst_request_id; }
+		Module_id         src_module_id() const { return _src_module_id; }
+		Module_request_id src_request_id() const { return _src_request_id; }
+		Module_id         dst_module_id() const { return _dst_module_id; }
+		Module_request_id dst_request_id() const { return _dst_request_id; }
 };
 
 
@@ -197,7 +200,7 @@ class Tresor::Module_composition
 
 	public:
 
-		void add_module(unsigned long  module_id,
+		void add_module(Module_id  module_id,
 		                Module        &module)
 		{
 			if (module_id > MAX_MODULE_ID) {
@@ -211,7 +214,7 @@ class Tresor::Module_composition
 			_module_ptrs[module_id] = &module;
 		}
 
-		void remove_module(unsigned long  module_id)
+		void remove_module(Module_id  module_id)
 		{
 			if (module_id > MAX_MODULE_ID) {
 				class Exception_1 { };
@@ -226,7 +229,7 @@ class Tresor::Module_composition
 
 		void execute_modules(bool &progress)
 		{
-			for (unsigned long id { 0 }; id <= MAX_MODULE_ID; id++) {
+			for (Module_id id { 0 }; id <= MAX_MODULE_ID; id++) {
 
 				if (_module_ptrs[id] == nullptr)
 					continue;

@@ -671,7 +671,7 @@ class Command_pool : public Module {
 
 						Trust_anchor_request::create(
 							buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-							(unsigned long)Trust_anchor_request::INITIALIZE,
+							Trust_anchor_request::INITIALIZE,
 							nullptr, nullptr, node.passphrase().string(),
 							nullptr);
 
@@ -694,7 +694,7 @@ class Command_pool : public Module {
 
 					Sb_initializer_request::create(
 						buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-						(unsigned long)Sb_initializer_request::INIT,
+						Sb_initializer_request::INIT,
 						(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
 						(Tree_degree)cfg.vbd_nr_of_children(),
 						cfg.vbd_nr_of_leafs(),
@@ -717,7 +717,7 @@ class Command_pool : public Module {
 
 					Sb_check_request::create(
 						buf_ptr, buf_size, COMMAND_POOL, cmd.id(),
-						(unsigned long)Sb_check_request::CHECK);
+						Sb_check_request::CHECK);
 
 					return true;
 				}
@@ -903,7 +903,7 @@ class Command_pool : public Module {
 			return *resulting_cmd;
 		}
 
-		void mark_command_in_progress(unsigned long cmd_id)
+		void mark_command_in_progress(Module_request_id cmd_id)
 		{
 			bool exit_loop { false };
 			_cmd_queue.for_each([&] (Command &cmd)
@@ -926,8 +926,8 @@ class Command_pool : public Module {
 			});
 		}
 
-		void mark_command_completed(unsigned long cmd_id,
-		                            bool          success)
+		void mark_command_completed(Module_request_id cmd_id,
+		                            bool              success)
 		{
 			bool exit_loop { false };
 			_cmd_queue.for_each([&] (Command &cmd)

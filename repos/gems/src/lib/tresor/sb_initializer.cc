@@ -26,8 +26,8 @@
 using namespace Tresor;
 
 
-Sb_initializer_request::Sb_initializer_request(unsigned long src_module_id,
-                                                 unsigned long src_request_id)
+Sb_initializer_request::Sb_initializer_request(Module_id         src_module_id,
+                                                 Module_request_id src_request_id)
 :
 	Module_request { src_module_id, src_request_id, SB_INITIALIZER }
 { }
@@ -353,7 +353,7 @@ bool Sb_initializer::_peek_completed_request(uint8_t *buf_ptr,
 
 void Sb_initializer::_drop_completed_request(Module_request &req)
 {
-	unsigned long id { 0 };
+	Module_request_id id { 0 };
 	id = req.dst_request_id();
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
@@ -372,7 +372,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 {
 	using CS = Channel::State;
 
-	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 
 		Channel const &channel { _channels[id] };
 
@@ -495,7 +495,7 @@ bool Sb_initializer::_peek_generated_request(uint8_t *buf_ptr,
 
 void Sb_initializer::_drop_generated_request(Module_request &req)
 {
-	unsigned long const id { req.src_request_id() };
+	Module_request_id const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Bad_id { };
 		throw Bad_id { };
@@ -534,7 +534,7 @@ void Sb_initializer::_drop_generated_request(Module_request &req)
 
 void Sb_initializer::generated_request_complete(Module_request &req)
 {
-	unsigned long const id { req.src_request_id() };
+	Module_request_id const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -689,7 +689,7 @@ bool Sb_initializer::ready_to_submit_request()
 
 void Sb_initializer::submit_request(Module_request &req)
 {
-	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
 			_channels[id]._request = *static_cast<Request *>(&req);

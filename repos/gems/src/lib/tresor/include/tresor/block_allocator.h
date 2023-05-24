@@ -45,8 +45,8 @@ class Tresor::Block_allocator_request : public Module_request
 
 		Block_allocator_request() { }
 
-		Block_allocator_request(unsigned long src_module_id,
-		                        unsigned long src_request_id);
+		Block_allocator_request(Module_id         src_module_id,
+		                        Module_request_id src_request_id);
 
 		static void create(void     *buf_ptr,
 		                   size_t    buf_size,

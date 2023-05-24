@@ -129,8 +129,8 @@ void Virtual_block_device_request::create(void                  *buf_ptr,
 }
 
 
-Virtual_block_device_request::Virtual_block_device_request(unsigned long src_module_id,
-                                                           unsigned long src_request_id)
+Virtual_block_device_request::Virtual_block_device_request(Module_id         src_module_id,
+                                                           Module_request_id src_request_id)
 :
 	Module_request { src_module_id, src_request_id, VIRTUAL_BLOCK_DEVICE }
 { }
@@ -188,7 +188,7 @@ bool Virtual_block_device::ready_to_submit_request()
 
 void Virtual_block_device::submit_request(Module_request &mod_req)
 {
-	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		Channel &chan { _channels[id] };
 		if (chan._request._type == Request::INVALID) {
 			mod_req.dst_request_id(id);
@@ -1937,7 +1937,7 @@ bool Virtual_block_device::_peek_generated_request(uint8_t *buf_ptr,
 
 void Virtual_block_device::_drop_generated_request(Module_request &mod_req)
 {
-	unsigned long const id { mod_req.src_request_id() };
+	Module_request_id const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -1966,7 +1966,7 @@ void Virtual_block_device::_drop_generated_request(Module_request &mod_req)
 
 void Virtual_block_device::generated_request_complete(Module_request &mod_req)
 {
-	unsigned long const id { mod_req.src_request_id() };
+	Module_request_id const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -2047,7 +2047,7 @@ bool Virtual_block_device::_peek_completed_request(uint8_t *buf_ptr,
 
 void Virtual_block_device::_drop_completed_request(Module_request &req)
 {
-	unsigned long id { 0 };
+	Module_request_id id { 0 };
 	id = req.dst_request_id();
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };

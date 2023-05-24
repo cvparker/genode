@@ -364,7 +364,7 @@ bool Ft_check::_peek_completed_request(uint8_t *buf_ptr,
 
 void Ft_check::_drop_completed_request(Module_request &req)
 {
-	unsigned long id { 0 };
+	Module_request_id id { 0 };
 	id = req.dst_request_id();
 	if (id >= NR_OF_CHANNELS) {
 
@@ -385,7 +385,7 @@ void Ft_check::_drop_completed_request(Module_request &req)
 bool Ft_check::_peek_generated_request(uint8_t *buf_ptr,
                                        size_t   buf_size)
 {
-	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 
 		Channel &chan { _channels[id] };
 
@@ -418,7 +418,7 @@ bool Ft_check::_peek_generated_request(uint8_t *buf_ptr,
 
 void Ft_check::_drop_generated_request(Module_request &req)
 {
-	unsigned long const id { req.src_request_id() };
+	Module_request_id const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_0 { };
 		throw Exception_0 { };
@@ -430,7 +430,7 @@ void Ft_check::_drop_generated_request(Module_request &req)
 
 void Ft_check::generated_request_complete(Module_request &mod_req)
 {
-	unsigned long const id { mod_req.src_request_id() };
+	Module_request_id const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -462,7 +462,7 @@ bool Ft_check::ready_to_submit_request()
 
 void Ft_check::submit_request(Module_request &req)
 {
-	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		Channel &chan { _channels[id] };
 		if (chan._request._type == Request::INVALID) {
 			req.dst_request_id(id);

@@ -606,7 +606,7 @@ void Request_pool::execute(bool &progress)
 
 void Request_pool::submit_request(Module_request &mod_req)
 {
-	for (unsigned long idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
+	for (Module_request_id idx { 0 }; idx < NR_OF_CHANNELS; idx++) {
 		if (_channels[idx]._state == Channel::INVALID) {
 			Request &req { *static_cast<Request *>(&mod_req) };
 			switch (req.operation()) {
@@ -674,7 +674,7 @@ bool Request_pool::_peek_generated_request(uint8_t *buf_ptr,
 
 void Request_pool::_drop_generated_request(Module_request &mod_req)
 {
-	unsigned long const id { mod_req.src_request_id() };
+	Module_request_id const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -701,7 +701,7 @@ void Request_pool::_drop_generated_request(Module_request &mod_req)
 
 void Request_pool::generated_request_complete(Module_request &mod_req)
 {
-	unsigned long const id { mod_req.src_request_id() };
+	Module_request_id const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -786,7 +786,7 @@ bool Request_pool::_peek_completed_request(uint8_t *buf_ptr,
 
 void Request_pool::_drop_completed_request(Module_request &req)
 {
-	unsigned long id { 0 };
+	Module_request_id id { 0 };
 	id = req.dst_request_id();
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };

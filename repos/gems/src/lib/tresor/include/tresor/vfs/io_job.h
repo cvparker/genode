@@ -80,7 +80,7 @@ namespace Util {
 		State                   _state;
 		char                   *_data;
 		Vfs::file_offset const  _base_offset;
-		Vfs::file_offset        _current_offset;
+		size_t                  _current_offset;
 		size_t                  _current_count;
 		bool             const  _allow_partial;
 		bool                    _success;

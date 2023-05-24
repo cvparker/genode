@@ -56,8 +56,8 @@ class Tresor::Sb_initializer_request : public Module_request
 
 		Sb_initializer_request() { }
 
-		Sb_initializer_request(unsigned long src_module_id,
-		                        unsigned long src_request_id);
+		Sb_initializer_request(Module_id         src_module_id,
+		                        Module_request_id src_request_id);
 
 		static void create(void             *buf_ptr,
 		                   size_t            buf_size,

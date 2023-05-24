@@ -110,7 +110,7 @@ bool Block_io::_peek_generated_request(uint8_t *buf_ptr,
 
 void Block_io::_drop_generated_request(Module_request &req)
 {
-	unsigned long const id { req.src_request_id() };
+	Module_request_id const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Bad_id { };
 		throw Bad_id { };
@@ -131,7 +131,7 @@ void Block_io::_drop_generated_request(Module_request &req)
 
 void Block_io::generated_request_complete(Module_request &mod_req)
 {
-	unsigned long const id { mod_req.src_request_id() };
+	Module_request_id const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -566,9 +566,17 @@ void Block_io::execute(bool &progress)
 
 		Request &req { channel._request };
 		if (channel._state == Channel::SUBMITTED) {
+
+			uint64_t const nr_of_remaining_bytes {
+				req._blk_count * BLOCK_SIZE };
+
+			if (nr_of_remaining_bytes > ~(size_t)0) {
+				class Exception_2 { };
+				throw Exception_2 { };
+			}
 			channel._state = Channel::PENDING;
 			channel._nr_of_processed_bytes = 0;
-			channel._nr_of_remaining_bytes = req._blk_count * BLOCK_SIZE;
+			channel._nr_of_remaining_bytes = (size_t)nr_of_remaining_bytes;
 		}
 		switch (req._type) {
 		case Request::READ:              _execute_read(channel, progress);              break;
@@ -641,7 +649,7 @@ bool Block_io::_peek_completed_request(uint8_t *buf_ptr,
 
 void Block_io::_drop_completed_request(Module_request &req)
 {
-	unsigned long id { 0 };
+	Module_request_id id { 0 };
 	id = req.dst_request_id();
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
@@ -666,7 +674,7 @@ bool Block_io::ready_to_submit_request()
 
 void Block_io::submit_request(Module_request &req)
 {
-	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
 			_channels[id]._request = *static_cast<Request *>(&req);

@@ -22,9 +22,9 @@ using namespace Tresor;
  ** Module_request **
  ********************/
 
-Module_request::Module_request(unsigned long src_module_id,
-                               unsigned long src_request_id,
-                               unsigned long dst_module_id)
+Module_request::Module_request(Module_id         src_module_id,
+                               Module_request_id src_request_id,
+                               Module_id         dst_module_id)
 :
 	_src_module_id  { src_module_id },
 	_src_request_id { src_request_id },
@@ -52,7 +52,7 @@ String<32> Module_request::dst_request_id_str() const
  ** Global functions **
  **********************/
 
-char const *Tresor::module_name(unsigned long id)
+char const *Tresor::module_name(Module_id id)
 {
 	switch (id) {
 	case CRYPTO: return "crypto";

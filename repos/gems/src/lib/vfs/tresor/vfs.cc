@@ -869,14 +869,12 @@ class Vfs_tresor::Wrapper
 				PENDING, IN_PROGRESS, COMPLETE,
 				ERROR, ERROR_EOF
 			};
-			State        state       { NONE };
-			file_size    count       { 0 };
-			Tresor::Request tresor_request { };
-
-			void *data { nullptr };
-
-			uint64_t offset { 0 };
-			uint64_t helper_offset { 0 };
+			State            state          { NONE };
+			size_t           count          { 0 };
+			Tresor::Request  tresor_request { };
+			void            *data           { nullptr };
+			uint64_t         offset         { 0 };
+			uint64_t         helper_offset  { 0 };
 
 			bool pending()     const { return state == PENDING; }
 			bool in_progress() const { return state == IN_PROGRESS; }
@@ -998,7 +996,15 @@ class Vfs_tresor::Wrapper
 
 				_frontend_request.helper_offset = (offset % Tresor::BLOCK_SIZE);
 				if (count >= (Tresor::BLOCK_SIZE - _frontend_request.helper_offset)) {
-					_frontend_request.count = Tresor::BLOCK_SIZE - _frontend_request.helper_offset;
+
+					uint64_t const count_u64 {
+						Tresor::BLOCK_SIZE - _frontend_request.helper_offset };
+
+					if (count_u64 > ~(size_t)0) {
+						class Exception_3 { };
+						throw Exception_3 { };
+					}
+					_frontend_request.count = (size_t)count_u64;
 				} else {
 					_frontend_request.count = count;
 				}
@@ -1594,7 +1600,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 		using Content_string = String<32>;
 
 		static file_size copy_content(Content_string const &content,
-		                              char *dst, file_size const count)
+		                              char *dst, size_t const count)
 		{
 			copy_cstring(dst, content.string(), count);
 			size_t const length_without_nul = content.length() - 1;
@@ -1691,11 +1697,6 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			_w.manage_extend_file_system(*this);
 		}
 
-		~Extend_file_system()
-		{
-			_w.dissolve_extend_file_system(*this);
-		}
-
 		static char const *type_name() { return "extend"; }
 
 		char const *type() override { return type_name(); }
@@ -1783,7 +1784,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 		using Content_string = String<32>;
 
 		static file_size copy_content(Content_string const &content,
-		                              char *dst, file_size const count)
+		                              char *dst, size_t const count)
 		{
 			copy_cstring(dst, content.string(), count);
 			size_t const length_without_nul = content.length() - 1;
@@ -1860,11 +1861,6 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 			_w(w)
 		{
 			_w.manage_extend_progress_file_system(*this);
-		}
-
-		~Extend_progress_file_system()
-		{
-			_w.dissolve_extend_progress_file_system(*this);
 		}
 
 		static char const *type_name() { return "extend_progress"; }
@@ -1954,7 +1950,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 		using Content_string = String<32>;
 
 		static file_size copy_content(Content_string const &content,
-		                              char *dst, file_size const count)
+		                              char *dst, size_t const count)
 		{
 			copy_cstring(dst, content.string(), count);
 			size_t const length_without_nul = content.length() - 1;
@@ -2048,11 +2044,6 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 			_w.manage_rekey_file_system(*this);
 		}
 
-		~Rekey_file_system()
-		{
-			_w.dissolve_rekey_file_system(*this);
-		}
-
 		static char const *type_name() { return "rekey"; }
 
 		char const *type() override { return type_name(); }
@@ -2140,7 +2131,7 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 		using Content_string = String<32>;
 
 		static file_size copy_content(Content_string const &content,
-		                              char *dst, file_size const count)
+		                              char *dst, size_t const count)
 		{
 			copy_cstring(dst, content.string(), count);
 			size_t const length_without_nul = content.length() - 1;
@@ -2215,11 +2206,6 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 			_w(w)
 		{
 			_w.manage_rekey_progress_file_system(*this);
-		}
-
-		~Rekey_progress_file_system()
-		{
-			_w.dissolve_rekey_progress_file_system(*this);
 		}
 
 		static char const *type_name() { return "rekey_progress"; }
@@ -2398,11 +2384,6 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 			_w(w)
 		{
 			_w.manage_deinit_file_system(*this);
-		}
-
-		~Deinitialize_file_system()
-		{
-			_w.dissolve_deinit_file_system(*this);
 		}
 
 		static char const *type_name() { return "deinitialize"; }
@@ -3036,11 +3017,6 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 			_wrapper.manage_snapshots_file_system(*this);
 		}
 
-		~Snapshots_file_system()
-		{
-			_wrapper.dissolve_snapshots_file_system(*this);
-		}
-
 		static char const *type_name() { return "snapshots"; }
 
 		char const *type() override { return type_name(); }
@@ -3291,6 +3267,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 struct Vfs_tresor::Control_local_factory : File_system_factory
 {
+	Wrapper                      &_wrapper;
 	Rekey_file_system             _rekeying_fs;
 	Rekey_progress_file_system    _rekeying_progress_fs;
 	Deinitialize_file_system      _deinitialize_fs;
@@ -3301,16 +3278,26 @@ struct Vfs_tresor::Control_local_factory : File_system_factory
 
 	Control_local_factory(Vfs::Env & /* env */,
 	                      Xml_node   /* config */,
-	                      Wrapper  & tresor)
+	                      Wrapper  & wrapper)
 	:
-		_rekeying_fs(tresor),
-		_rekeying_progress_fs(tresor),
-		_deinitialize_fs(tresor),
-		_create_snapshot_fs(tresor),
-		_discard_snapshot_fs(tresor),
-		_extend_fs(tresor),
-		_extend_progress_fs(tresor)
+		_wrapper(wrapper),
+		_rekeying_fs(wrapper),
+		_rekeying_progress_fs(wrapper),
+		_deinitialize_fs(wrapper),
+		_create_snapshot_fs(wrapper),
+		_discard_snapshot_fs(wrapper),
+		_extend_fs(wrapper),
+		_extend_progress_fs(wrapper)
 	{ }
+
+	~Control_local_factory()
+	{
+		_wrapper.dissolve_rekey_file_system(_rekeying_fs);
+		_wrapper.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
+		_wrapper.dissolve_deinit_file_system(_deinitialize_fs);
+		_wrapper.dissolve_extend_file_system(_extend_fs);
+		_wrapper.dissolve_extend_progress_file_system(_extend_progress_fs);
+	}
 
 	Vfs::File_system *create(Vfs::Env&, Xml_node node) override
 	{
@@ -3348,7 +3335,7 @@ struct Vfs_tresor::Control_local_factory : File_system_factory
 
 
 class Vfs_tresor::Control_file_system : private Control_local_factory,
-                                     public Vfs::Dir_file_system
+                                        public Vfs::Dir_file_system
 {
 	private:
 
@@ -3391,17 +3378,24 @@ class Vfs_tresor::Control_file_system : private Control_local_factory,
 
 struct Vfs_tresor::Local_factory : File_system_factory
 {
-	Snapshot_file_system _current_snapshot_fs;
-	Snapshots_file_system _snapshots_fs;
-	Control_file_system _control_fs;
+	Wrapper               &_wrapper;
+	Snapshot_file_system   _current_snapshot_fs;
+	Snapshots_file_system  _snapshots_fs;
+	Control_file_system    _control_fs;
 
 	Local_factory(Vfs::Env &env, Xml_node config,
-	              Wrapper &tresor)
+	              Wrapper &wrapper)
 	:
-		_current_snapshot_fs(env, tresor, 0, false),
-		_snapshots_fs(env, config, tresor),
-		_control_fs(env, config, tresor)
+		_wrapper(wrapper),
+		_current_snapshot_fs(env, wrapper, 0, false),
+		_snapshots_fs(env, config, wrapper),
+		_control_fs(env, config, wrapper)
 	{ }
+
+	~Local_factory()
+	{
+		_wrapper.dissolve_snapshots_file_system(_snapshots_fs);
+	}
 
 	Vfs::File_system *create(Vfs::Env&, Xml_node node) override
 	{
@@ -3422,7 +3416,7 @@ struct Vfs_tresor::Local_factory : File_system_factory
 
 
 class Vfs_tresor::File_system : private Local_factory,
-                             public Vfs::Dir_file_system
+                                public Vfs::Dir_file_system
 {
 	private:
 

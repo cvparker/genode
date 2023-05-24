@@ -58,8 +58,8 @@ void Trust_anchor_request::create(void       *buf_ptr,
 }
 
 
-Trust_anchor_request::Trust_anchor_request(unsigned long src_module_id,
-                                           unsigned long src_request_id)
+Trust_anchor_request::Trust_anchor_request(Module_id         src_module_id,
+                                           Module_request_id src_request_id)
 :
 	Module_request { src_module_id, src_request_id, TRUST_ANCHOR }
 { }
@@ -89,7 +89,7 @@ void Trust_anchor::_execute_write_read_operation(Vfs::Vfs_handle   &file,
                                                  Channel           &channel,
                                                  char        const *write_buf,
                                                  char              *read_buf,
-                                                 Vfs::file_size     read_size,
+                                                 size_t             read_size,
                                                  bool              &progress)
 {
 	Request &req { channel._request };
@@ -518,7 +518,7 @@ bool Trust_anchor::_peek_completed_request(uint8_t *buf_ptr,
 
 void Trust_anchor::_drop_completed_request(Module_request &req)
 {
-	unsigned long id { 0 };
+	Module_request_id id { 0 };
 	id = req.dst_request_id();
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
@@ -543,7 +543,7 @@ bool Trust_anchor::ready_to_submit_request()
 
 void Trust_anchor::submit_request(Module_request &req)
 {
-	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
 			_channels[id]._request = *static_cast<Request *>(&req);

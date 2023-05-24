@@ -105,7 +105,7 @@ bool Crypto::_peek_generated_request(uint8_t *buf_ptr,
 
 void Crypto::_drop_generated_request(Module_request &req)
 {
-	unsigned long const id { req.src_request_id() };
+	Module_request_id const id { req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Bad_id { };
 		throw Bad_id { };
@@ -609,7 +609,7 @@ Crypto::Crypto(Vfs::Env       &vfs_env,
 
 void Crypto::generated_request_complete(Module_request &mod_req)
 {
-	unsigned long const id { mod_req.src_request_id() };
+	Module_request_id const id { mod_req.src_request_id() };
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
 		throw Exception_1 { };
@@ -694,7 +694,7 @@ bool Crypto::_peek_completed_request(uint8_t *buf_ptr,
 
 void Crypto::_drop_completed_request(Module_request &req)
 {
-	unsigned long id { 0 };
+	Module_request_id id { 0 };
 	id = req.dst_request_id();
 	if (id >= NR_OF_CHANNELS) {
 		class Exception_1 { };
@@ -719,7 +719,7 @@ bool Crypto::ready_to_submit_request()
 
 void Crypto::submit_request(Module_request &req)
 {
-	for (unsigned long id { 0 }; id < NR_OF_CHANNELS; id++) {
+	for (Module_request_id id { 0 }; id < NR_OF_CHANNELS; id++) {
 		if (_channels[id]._state == Channel::INACTIVE) {
 			req.dst_request_id(id);
 			_channels[id]._request = *static_cast<Request *>(&req);

@@ -63,8 +63,8 @@ class Tresor::Client_data_request : public Module_request
 		 ** can be removed once the tresor translation is done **
 		 *****************************************************/
 
-		Client_data_request(unsigned long src_module_id,
-		                    unsigned long src_request_id,
+		Client_data_request(Module_id         src_module_id,
+		                    Module_request_id src_request_id,
 		                    Type          type,
 		                    uint64_t      client_req_offset,
 		                    uint64_t      client_req_tag,

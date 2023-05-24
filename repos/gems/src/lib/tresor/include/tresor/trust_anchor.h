@@ -50,8 +50,8 @@ class Tresor::Trust_anchor_request : public Module_request
 
 		Trust_anchor_request() { }
 
-		Trust_anchor_request(unsigned long src_module_id,
-		                     unsigned long src_request_id);
+		Trust_anchor_request(Module_id         src_module_id,
+		                     Module_request_id src_request_id);
 
 		static void create(void       *buf_ptr,
 		                   size_t      buf_size,
@@ -94,7 +94,7 @@ class Tresor::Trust_anchor_channel
 		State                _state       { INACTIVE };
 		Trust_anchor_request _request     { };
 		Vfs::file_offset     _file_offset { 0 };
-		Vfs::file_size       _file_size   { 0 };
+		size_t               _file_size   { 0 };
 };
 
 class Tresor::Trust_anchor : public Module
@@ -129,7 +129,7 @@ class Tresor::Trust_anchor : public Module
 		                              Channel           &channel,
 		                              char const        *write_buf,
 		                              char              *read_buf,
-		                              Vfs::file_size     read_size,
+		                              size_t             read_size,
 		                              bool              &progress);
 
 		void _execute_write_operation(Vfs::Vfs_handle   &file,

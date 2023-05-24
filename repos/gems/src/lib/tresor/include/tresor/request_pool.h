@@ -66,8 +66,8 @@ namespace Tresor {
 			        uint32_t         key_id,
 			        uint32_t         tag,
 			        uint32_t         snap_id,
-			        unsigned long    src_module_id,
-			        unsigned long    src_request_id)
+			        Module_id            src_module_id,
+			        Module_request_id    src_request_id)
 			:
 				Module_request { src_module_id, src_request_id, REQUEST_POOL },
 				_operation     { operation    },
