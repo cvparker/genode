@@ -14,14 +14,6 @@
 #include <lx_emul.h>
 
 
-extern int __init platform_bus_init(void);
-int __init platform_bus_init(void)
-{
-	lx_emul_trace(__func__);
-	return 0;
-}
-
-
 #include <linux/kernel_stat.h>
 
 void account_process_tick(struct task_struct * p,int user_tick)
@@ -34,6 +26,14 @@ void account_process_tick(struct task_struct * p,int user_tick)
 struct random_ready_callback;
 
 int add_random_ready_callback(struct random_ready_callback * rdy)
+{
+	lx_emul_trace(__func__);
+	return 0;
+}
+
+
+extern int __init platform_bus_init(void);
+int __init platform_bus_init(void)
 {
 	lx_emul_trace(__func__);
 	return 0;
