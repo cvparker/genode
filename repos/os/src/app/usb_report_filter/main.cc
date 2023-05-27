@@ -170,25 +170,20 @@ class Usb_filter::Device_registry
 					}
 				});
 
-				if (!drv_config.has_sub_node("raw"))
-					log("enable raw support in usb_drv");
+				xml.node("report", [&] {
+					xml.attribute("devices", "yes");
+				});
 
-				xml.node("raw", [&] {
-					xml.node("report", [&] {
-						xml.attribute("devices", "yes");
-					});
+				char const * const label = _client_label.string();
 
-					char const * const label = _client_label.string();
+				usb_devices.for_each_sub_node("device", [&] (Xml_node &node) {
 
-					usb_devices.for_each_sub_node("device", [&] (Xml_node &node) {
+					auto add_policy_entry = [&] (Entry const &entry) {
+						if (!_devices_matches(node, entry)) return;
 
-						auto add_policy_entry = [&] (Entry const &entry) {
-							if (!_devices_matches(node, entry)) return;
-
-							_gen_policy_entry(xml, node, entry, label);
-						};
-						_for_each_entry(add_policy_entry);
-					});
+						_gen_policy_entry(xml, node, entry, label);
+					};
+					_for_each_entry(add_policy_entry);
 				});
 			});
 
@@ -242,14 +237,10 @@ class Usb_filter::Device_registry
 
 		bool _check_config(Xml_node &drv_config)
 		{
-			if (!drv_config.has_sub_node("raw")) {
-				error("could not access <raw> node");
-				return false;
-			}
-
 			auto check_policy = [&] (Entry const &entry) {
 				bool result = false;
-				drv_config.sub_node("raw").for_each_sub_node("policy", [&] (Xml_node &node) {
+
+				drv_config.for_each_sub_node("policy", [&] (Xml_node &node) {
 						result |= (entry.bus == _get_value(node, "bus") &&
 						           entry.dev == _get_value(node, "dev"));
 						if (result) return;
