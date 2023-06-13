@@ -28,14 +28,10 @@ crypto/sha256_generic.c
 crypto/shash.c
 crypto/skcipher.c
 crypto/testmgr.c
-drivers/base/bus.c
-drivers/base/class.c
 drivers/base/component.c
-drivers/base/core.c
 drivers/base/dd.c
 drivers/base/devres.c
 drivers/base/driver.c
-drivers/base/platform.c
 drivers/base/property.c
 drivers/net/loopback.c
 drivers/net/wireless/ralink/rt2x00/rt2800lib.c
@@ -52,7 +48,6 @@ fs/nls/nls_base.c
 kernel/irq/chip.c
 kernel/irq/devres.c
 kernel/irq/handle.c
-kernel/irq/irqdesc.c
 kernel/irq/irqdomain.c
 kernel/irq/manage.c
 kernel/irq/resend.c
@@ -96,7 +91,6 @@ lib/find_bit.c
 lib/hexdump.c
 lib/idr.c
 lib/iomap.c
-lib/irq_regs.c
 lib/kasprintf.c
 lib/kfifo.c
 lib/klist.c
@@ -116,7 +110,6 @@ lib/timerqueue.c
 lib/vsprintf.c
 lib/xarray.c
 mm/mempool.c
-mm/util.c
 net/core/datagram.c
 net/core/dev.c
 net/core/dev_addr_lists.c
