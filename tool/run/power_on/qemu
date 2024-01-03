@@ -51,7 +51,7 @@ proc run_power_on { } {
 	if {![is_qemu_available]} { return 0 }
 
 	if {[have_spec x86_32]} { set qemu "qemu-system-i386" }
-	if {[have_spec x86_64]} { set qemu "qemu-system-x86_64" }
+	if {[have_spec x86_64]} { set qemu "/home/cvparker/Hacking/qemu/build/qemu-system-x86_64" }
 	if {[have_spec arm]}    { set qemu "qemu-system-arm" }
 	if {[have_spec arm_64]} { set qemu "qemu-system-aarch64" }
 	if {[have_spec riscv]}  { set qemu "qemu-system-riscv64" }
@@ -61,7 +61,7 @@ proc run_power_on { } {
 	# virtualization features used by NOVA. So let's always stick to this
 	# variant of Qemu when working with NOVA even when operating in 32bit.
 	#
-	if {[have_spec nova]} { set qemu "qemu-system-x86_64" }
+	if {[have_spec nova]} { set qemu "/home/cvparker/Hacking/qemu/build/qemu-system-x86_64" }
 
 	#
 	# Redirect serial output to stdio, but only when no explicit configuration

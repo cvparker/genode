@@ -1,4 +1,4 @@
-#!/usr/bin/make -f
+#!/usr/local/bin/make -f
 #
 # \brief  Function implementation creation tool for DDE Linux
 # \author Stefan Kalkowski
@@ -155,6 +155,7 @@ endif # LINUX_KERNEL_DIR specified
 # Collect undefined references for target
 #
 
+MAKEOVERRIDES :=  # prevent export of TARGET and other variables to the invoked make
 UNDEF_REFS := $(sort $(subst `,,$(subst ',,$(shell make -C $(BUILD_DIR) $(TARGET) 2>&1 | grep " undefined reference to " | sed -e "s/.* reference to //"))))
 
 define print_file_header

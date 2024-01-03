@@ -18,6 +18,7 @@ SRC_C += lx_emul/shadow/drivers/char/random.c
 SRC_C += lx_emul/shadow/fs/libfs.c
 SRC_C += lx_emul/shadow/mm/page_alloc.c
 SRC_C += lx_emul/shadow/mm/vmalloc.c
+SRC_C += lx_emul/shadow/drivers/pci/pci-sysfs.c
 
 SRC_C += lx_emul/virt/common_dummies.c
 
