@@ -20,6 +20,8 @@
 #include <hw/util.h>
 #include <util/misc_math.h>
 
+#include <os/backtrace.h>
+
 #include <clflush.h>
 #include <expanding_page_table_allocator.h>
 
@@ -109,6 +111,8 @@ class Genode::Final_table
 				if (DESCRIPTOR::present(desc) &&
 				    DESCRIPTOR::clear_mmu_flags(desc) != table_entry)
 				{
+					Genode::log("Double_insertion thrown and DESCRIPTOR comes from ", __FUNCTION__);
+					Genode::backtrace();
 					throw Double_insertion();
 				}
 				desc = table_entry;

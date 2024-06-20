@@ -13,6 +13,7 @@
 
 /* local includes */
 #include <intel/io_mmu.h>
+#include <os/backtrace.h> /* comment 126 */
 
 using namespace Driver;
 
@@ -74,10 +75,35 @@ void Intel::Io_mmu::Domain<TABLE>::add_range(Range const & range,
 	Page_flags flags { RW, NO_EXEC, USER, NO_GLOBAL,
 	                   RAM, Genode::CACHED };
 
+	addr_t constexpr vaddr_lower = 0x800000;
+	addr_t constexpr vaddr_upper = 0xC00000;
+	if (vaddr > vaddr_lower - size && vaddr < vaddr_upper) {
+		Genode::log("insert_translation vaddr of ", Genode::Hex(vaddr), " falls in range ", Genode::Hex(vaddr_lower), " to ", Genode::Hex(vaddr_upper));
+		Genode::backtrace();
+	}
+	try {
 	_translation_table.insert_translation(vaddr, paddr, size, flags,
 	                                      _table_allocator,
 	                                      !_intel_iommu.coherent_page_walk(),
 	                                      _intel_iommu.supported_page_sizes());
+	} catch(Genode::Out_of_ram) {
+		Genode::log("insert_translation exception caught (Out of RAM)");
+		Genode::log("vaddr ", Genode::Hex(vaddr));
+		Genode::log("paddr ", Genode::Hex(paddr));
+		Genode::log("size ", Genode::Hex(size));
+		Genode::log("flags ", flags);
+		Genode::backtrace();
+		throw;
+	} 
+	catch(...) {
+		Genode::log("insert_translation exception caught");
+		Genode::log("vaddr ", Genode::Hex(vaddr));
+		Genode::log("paddr ", Genode::Hex(paddr));
+		Genode::log("size ", Genode::Hex(size));
+		Genode::log("flags ", flags);
+		Genode::backtrace();
+		throw;
+	}
 
 	if (_skip_invalidation)
 		return;
