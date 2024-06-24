@@ -75,6 +75,11 @@ void Intel::Io_mmu::Domain<TABLE>::add_range(Range const & range,
 	Page_flags flags { RW, NO_EXEC, USER, NO_GLOBAL,
 	                   RAM, Genode::CACHED };
 
+	auto cleanup_partial_translations = [&] () {
+		_translation_table.remove_translation(vaddr, size, _table_allocator,
+		                                      !_intel_iommu.coherent_page_walk());
+	};
+
 	addr_t constexpr vaddr_lower = 0x800000;
 	addr_t constexpr vaddr_upper = 0xC00000;
 	if (vaddr > vaddr_lower - size && vaddr < vaddr_upper) {
@@ -82,21 +87,32 @@ void Intel::Io_mmu::Domain<TABLE>::add_range(Range const & range,
 		Genode::backtrace();
 	}
 	try {
-	_translation_table.insert_translation(vaddr, paddr, size, flags,
-	                                      _table_allocator,
-	                                      !_intel_iommu.coherent_page_walk(),
-	                                      _intel_iommu.supported_page_sizes());
-	} catch(Genode::Out_of_ram) {
+		_translation_table.insert_translation(vaddr, paddr, size, flags,
+		                                      _table_allocator,
+		                                      !_intel_iommu.coherent_page_walk(),
+		                                      _intel_iommu.supported_page_sizes());
+	} catch (Out_of_ram) {
 		Genode::log("insert_translation exception caught (Out of RAM)");
 		Genode::log("vaddr ", Genode::Hex(vaddr));
 		Genode::log("paddr ", Genode::Hex(paddr));
 		Genode::log("size ", Genode::Hex(size));
 		Genode::log("flags ", flags);
 		Genode::backtrace();
+		cleanup_partial_translations();
+		Genode::log("partial transactions cleaned");
 		throw;
-	} 
-	catch(...) {
-		Genode::log("insert_translation exception caught");
+	} catch (Out_of_caps) {
+		Genode::log("insert_translation exception caught (Out of caps)");
+		Genode::log("vaddr ", Genode::Hex(vaddr));
+		Genode::log("paddr ", Genode::Hex(paddr));
+		Genode::log("size ", Genode::Hex(size));
+		Genode::log("flags ", flags);
+		Genode::backtrace();
+		cleanup_partial_translations();
+		Genode::log("partial transactions cleaned");
+		throw;
+	} 	catch(...) {
+		Genode::log("insert_translation exception caught (other than Out_of_ram or Out_of_caps)");
 		Genode::log("vaddr ", Genode::Hex(vaddr));
 		Genode::log("paddr ", Genode::Hex(paddr));
 		Genode::log("size ", Genode::Hex(size));
