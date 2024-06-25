@@ -85,7 +85,7 @@
 
 	<start name="platform_drv" caps="400" managing_system="yes">
 		<binary name="pc_platform_drv"/>
-		<resource name="RAM" quantum="6M"/>
+		<resource name="RAM" quantum="1024M"/>
 		<provides> <service name="Platform"/> </provides>
 		<route>
 			<service name="ROM" label="system">  <parent label="system"/> </service>

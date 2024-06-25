@@ -426,7 +426,7 @@ install_config {
 	</start>
 
 	<start name="drivers" caps="4850" priority="-1" managing_system="yes">
-		<resource name="RAM" quantum="200M"/>
+		<resource name="RAM" quantum="1224M"/>
 		<resource name="CPU" quantum="5"/>
 		<binary name="init"/>
 		<route>
